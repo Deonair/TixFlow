@@ -1,0 +1,29 @@
+{
+  "name": "tixflow-backend",
+  "version": "1.0.0",
+  "description": "Backend API for the TixFlow application",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon --experimental-specifier-resolution=node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": [
+    "express",
+    "backend",
+    "api",
+    "mongoose",
+    "tixflow"
+  ],
+  "author": "Deonair",
+  "license": "MIT"
+}
