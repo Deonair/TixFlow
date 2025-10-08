@@ -46,4 +46,8 @@ pnpm-debug.log*
 # Editors
 .vscode/
 .idea/
-.package-lock.json
+
+# Lock files (don’t commit package managers' locks)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
