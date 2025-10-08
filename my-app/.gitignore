@@ -46,3 +46,4 @@ pnpm-debug.log*
 # Editors
 .vscode/
 .idea/
+.package-lock.json
