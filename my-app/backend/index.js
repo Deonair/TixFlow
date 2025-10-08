@@ -35,3 +35,4 @@ app.listen(PORT, () => {
 
 await mongoose.connect(MONGO_URI);
 console.log(`✅ Connected to: ${MONGO_URI}`);
+

@@ -55,15 +55,43 @@ const EventForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (validateForm()) {
-      // Hier zou je normaal gesproken de data naar een API sturen
-      console.log('Event aangemaakt:', formData);
-      setIsSubmitted(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!validateForm()) return;
+
+  // combineer date + time naar ISO string
+  const dateIso = formData.time
+    ? new Date(`${formData.date}T${formData.time}:00`).toISOString()
+    : new Date(formData.date).toISOString();
+
+  try {
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: formData.title,
+        date: dateIso,
+        location: formData.location,
+        description: formData.description,
+      }),
+    });
+
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(msg || `Request failed: ${res.status}`);
     }
-  };
+
+    // succes
+    setIsSubmitted(true);
+  } catch (err: any) {
+    setErrors((prev) => ({
+      ...prev,
+      title: (err.message || 'Er ging iets mis'),
+    }));
+  }
+};
+
 
   if (isSubmitted) {
     return (
