@@ -1,0 +1,19 @@
+my-app/backend/package-lock.json
+my-app/backend/package-lock.json
+node_modules/.package-lock.json
+my-app/backend/package-lock.json
+
+package-lock.json
+
+# Ignore root node_modules
+node_modules/
+
+# Ignore environment files at root
+.env
+.env.local
+.env.*.local
+
+# Optional: editor/system files
+.DS_Store
+.vscode/
+.idea/

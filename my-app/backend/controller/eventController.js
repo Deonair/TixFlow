@@ -15,4 +15,15 @@ export const createEvent = async (req, res) => {
   }
 };
 
+// Fetch all events
+export const getEvents = async (_req, res) => {
+  try {
+    const events = await Event.find().sort({ date: 1 });
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({ message: 'Error fetching events', error: error.message });
+  }
+};
+
 
