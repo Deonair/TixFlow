@@ -8,6 +8,8 @@ export default {
   theme: {
     extend: {},
   },
+
+
   // ... existing code ...
 }
 // ... existing code ...

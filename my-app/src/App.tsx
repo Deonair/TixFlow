@@ -4,16 +4,18 @@ import EventForm from './components/EventForm'
 
 function App() {
   return (
-    <main className="min-h-screen bg-gray-100 flex flex-col">
-      <Navbar />
-      <header className="py-10 text-center">
+    <>
+      <header className="bg-white">
+        <div className="px-4 pt-4 mb-6">
+          <Navbar />
+        </div>
+      </header>
+      <main className="px-4">
         <h1 className="text-4xl font-bold text-gray-900">TixFlow</h1>
         <p className="mt-2 text-base text-gray-600">Beheer je events eenvoudig</p>
-      </header>
-      <div className="flex-1 flex items-center justify-center px-4">
         <EventForm />
-      </div>
-    </main>
+      </main>
+    </>
   )
 }
 

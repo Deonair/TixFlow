@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Maak floating navbar weer onderdeel van de normale flow */
+.navbar-floating {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+}
+
+body {
+    background-color: #009FE3;
+}
