@@ -12,15 +12,19 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 5050;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/tixflow';
+import mongoose from 'mongoose';
 
-await mongoose.connect(MONGO_URI);
-console.log('MongoDB connected');
-// index.js
-app.use((req, _res, next) => {
-  console.log(`[${req.method}] ${req.originalUrl}`);
-  next();
-});
+// ⬇️ Dit toevoegen bovenaan de connectie:
+const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/tixflow';
+
+// Verbinden met MongoDB
+mongoose.connect(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
 
 app.use('/api/events', eventRouter);
 
