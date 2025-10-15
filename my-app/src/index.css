@@ -1,15 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Maak floating navbar weer onderdeel van de normale flow */
-.navbar-floating {
-    position: static !important;
-    top: auto !important;
-    right: auto !important;
-    left: auto !important;
-}
-
-body {
-    background-color: #009FE3;
-}
+@import "preline/variants.css";
+@source "../node_modules/preline/dist/*.js";
+@plugin "@tailwindcss/forms";

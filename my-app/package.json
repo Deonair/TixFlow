@@ -10,12 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "preline": "^3.2.3",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "rippleui": "^1.12.1"
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",

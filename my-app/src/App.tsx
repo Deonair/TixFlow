@@ -1,17 +1,21 @@
 import './App.css'
+import { useEffect } from 'react'
 import Navbar from './components/Navbar'
 import EventForm from './components/EventForm'
 
 function App() {
+  useEffect(() => {
+    // Initialize Preline JS for interactive components (dropdown, etc.)
+    import('preline/preline').then(() => {
+      if (window.HSStaticMethods && typeof window.HSStaticMethods.autoInit === 'function') {
+        window.HSStaticMethods.autoInit();
+      }
+    });
+  }, []);
   return (
     <>
-      <header className="bg-white">
-        <div className="px-4 pt-4 mb-6">
-          <Navbar />
-        </div>
-      </header>
+      <Navbar />
       <main className="px-4">
-        <h1 className="text-4xl font-bold text-gray-900">TixFlow</h1>
         <p className="mt-2 text-base text-gray-600">Beheer je events eenvoudig</p>
         <EventForm />
       </main>

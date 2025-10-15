@@ -95,14 +95,14 @@ const EventForm = () => {
 
   if (isSubmitted) {
     return (
-      <section className="card card-bordered w-full max-w-xl">
-        <div className="card-body">
+      <section className="mx-auto max-w-xl">
+        <div className="rounded-lg bg-white shadow-lg p-6">
           <div className="text-center">
             <svg className="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
             </svg>
             <h2 className="mt-3 text-lg font-medium text-gray-900">Event succesvol aangemaakt!</h2>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Je event "{formData.title}" is succesvol aangemaakt.
             </p>
             <div className="mt-6">
@@ -117,7 +117,7 @@ const EventForm = () => {
                   });
                   setIsSubmitted(false);
                 }}
-                className="btn btn-primary"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               >
                 Nieuw event aanmaken
               </button>
@@ -129,13 +129,13 @@ const EventForm = () => {
   }
 
   return (
-    <section className="card card-bordered max-w-xl mx-auto">
-      <div className="card-body">
+    <section className="mx-auto max-w-xl">
+      <div className="rounded-lg bg-white shadow-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="w-full">
-            <label className="sr-only" htmlFor="title">Titel *</label>
+            <label className="block text-sm font-medium mb-2" htmlFor="title">Titel *</label>
             <input
-              className={`input input-solid max-w-full ${errors.title ? 'input-error' : ''}`}
+              className={`py-2.5 px-3 block w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:pointer-events-none ${errors.title ? 'border-red-500 focus:border-red-600 focus:ring-red-600' : ''}`}
               placeholder="Titel *"
               type="text"
               id="title"
@@ -143,27 +143,27 @@ const EventForm = () => {
               value={formData.title}
               onChange={handleChange}
             />
-            {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title}</p>}
+            {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="sr-only" htmlFor="date">Datum *</label>
+              <label className="block text-sm font-medium mb-2" htmlFor="date">Datum *</label>
               <input
-                className={`input input-solid ${errors.date ? 'input-error' : ''}`}
+                className={`py-2.5 px-3 block w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:pointer-events-none ${errors.date ? 'border-red-500 focus:border-red-600 focus:ring-red-600' : ''}`}
                 type="date"
                 id="date"
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
               />
-              {errors.date && <p className="mt-1 text-sm text-red-500">{errors.date}</p>}
+              {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
             </div>
 
             <div>
-              <label className="sr-only" htmlFor="time">Tijd</label>
+              <label className="block text-sm font-medium mb-2" htmlFor="time">Tijd</label>
               <input
-                className="input input-solid"
+                className="py-2.5 px-3 block w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:pointer-events-none"
                 type="time"
                 id="time"
                 name="time"
@@ -174,9 +174,9 @@ const EventForm = () => {
           </div>
 
           <div className="w-full">
-            <label className="sr-only" htmlFor="location">Locatie *</label>
+            <label className="block text-sm font-medium mb-2" htmlFor="location">Locatie *</label>
             <input
-              className={`input input-solid max-w-full ${errors.location ? 'input-error' : ''}`}
+              className={`py-2.5 px-3 block w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:pointer-events-none ${errors.location ? 'border-red-500 focus:border-red-600 focus:ring-red-600' : ''}`}
               placeholder="Locatie *"
               type="text"
               id="location"
@@ -184,13 +184,13 @@ const EventForm = () => {
               value={formData.location}
               onChange={handleChange}
             />
-            {errors.location && <p className="mt-1 text-sm text-red-500">{errors.location}</p>}
+            {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
           </div>
 
           <div className="w-full">
-            <label className="sr-only" htmlFor="description">Beschrijving</label>
+            <label className="block text-sm font-medium mb-2" htmlFor="description">Beschrijving</label>
             <textarea
-              className="textarea textarea-solid max-w-full"
+              className="py-2.5 px-3 block w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:pointer-events-none"
               placeholder="Beschrijving"
               rows={8}
               id="description"
@@ -201,7 +201,12 @@ const EventForm = () => {
           </div>
 
           <div className="mt-4">
-            <button type="submit" className="rounded-lg btn btn-primary btn-block">Event Aanmaken</button>
+            <button
+              type="submit"
+              className="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            >
+              Event Aanmaken
+            </button>
           </div>
         </form>
       </div>
