@@ -12,10 +12,9 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 5050;
-import mongoose from 'mongoose';
 
-// ⬇️ Dit toevoegen bovenaan de connectie:
-const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/tixflow';
+// DB connectie: gebruik MONGO_URI uit env; geen localhost fallback in containers
+const uri = process.env.MONGO_URI ?? 'mongodb://localhost:27017/tixflow';
 
 // Verbinden met MongoDB
 mongoose.connect(uri, {
@@ -27,6 +26,12 @@ mongoose.connect(uri, {
 
 
 app.use('/api/events', eventRouter);
+
+// Health endpoint voor snelle check
+app.get('/api/health', (_req, res) => {
+  const state = mongoose.connection.readyState; // 0:disconnected 1:connected
+  res.json({ ok: true, db: state === 1 ? 'connected' : 'not_connected' });
+});
 
 // app.get('/api/health', (_req, res) => {
 //   res.json({ ok: true });
