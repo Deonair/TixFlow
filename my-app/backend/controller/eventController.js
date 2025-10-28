@@ -51,4 +51,44 @@ export const getEvents = async (_req, res) => {
   }
 };
 
+// Fetch single event by ID
+export const getEventById = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event niet gevonden' });
+    }
+    res.json(event);
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    res.status(500).json({ message: 'Error fetching event', error: error.message });
+  }
+};
+
+// Update event status
+export const updateEventStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ message: 'Ongeldige status. Status moet "active" of "inactive" zijn.' });
+    }
+
+    const event = await Event.findById(id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event niet gevonden' });
+    }
+
+    event.status = status;
+    await event.save();
+
+    res.json(event);
+  } catch (error) {
+    console.error('Error updating event status:', error);
+    res.status(500).json({ message: 'Error updating event status', error: error.message });
+  }
+};
+
 

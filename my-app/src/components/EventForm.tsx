@@ -8,6 +8,12 @@ interface EventFormData {
   description: string;
 }
 
+const CHAR_LIMITS = {
+  title: 25,
+  location: 50,
+  description: 400
+};
+
 const EventForm = () => {
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
@@ -22,6 +28,13 @@ const EventForm = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Controleer karakterlimieten
+    if (CHAR_LIMITS[name as keyof typeof CHAR_LIMITS] && 
+        value.length > CHAR_LIMITS[name as keyof typeof CHAR_LIMITS]) {
+      return;
+    }
+
     setFormData({
       ...formData,
       [name]: value
@@ -142,6 +155,7 @@ const EventForm = () => {
               name="title"
               value={formData.title}
               onChange={handleChange}
+              maxLength={CHAR_LIMITS.title}
             />
             {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
           </div>
@@ -183,6 +197,7 @@ const EventForm = () => {
               name="location"
               value={formData.location}
               onChange={handleChange}
+              maxLength={CHAR_LIMITS.location}
             />
             {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
           </div>
@@ -197,6 +212,7 @@ const EventForm = () => {
               name="description"
               value={formData.description}
               onChange={handleChange}
+              maxLength={CHAR_LIMITS.description}
             ></textarea>
           </div>
 

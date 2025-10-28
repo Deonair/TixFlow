@@ -1,7 +1,10 @@
 import './App.css'
 import { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import EventForm from './components/EventForm'
+import EventList from './components/EventList'
+import EventDetail from './components/EventDetail'
 
 function App() {
   useEffect(() => {
@@ -12,15 +15,20 @@ function App() {
       }
     });
   }, []);
+
   return (
-    <>
+    <Router>
       <Navbar />
-      <main className="px-4">
-        <p className="mt-2 text-base text-gray-600">Beheer je events eenvoudig</p>
-        <EventForm />
+      <main className="px-4 py-8">
+        <Routes>
+          <Route path="/" element={<Navigate to="/events" replace />} />
+          <Route path="/events" element={<EventList />} />
+          <Route path="/event/new" element={<EventForm />} />
+          <Route path="/event/:id" element={<EventDetail />} />
+        </Routes>
       </main>
-    </>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;
