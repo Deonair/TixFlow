@@ -4,7 +4,7 @@ node_modules/.package-lock.json
 my-app/backend/package-lock.json
 
 package-lock.json
-package.json
+# package.json
 
 # Ignore root node_modules
 node_modules/
