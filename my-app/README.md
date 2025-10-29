@@ -43,6 +43,42 @@ export default defineConfig([
 ])
 ```
 
+## TixFlow – Local Development (Backend & Frontend)
+
+This app is part of TixFlow and runs a local Express/Mongoose backend with a React/Vite frontend.
+
+### Prerequisites
+- Node.js 18+ and npm
+- MongoDB local (`mongodb://localhost:27017/tixflow`) or an Atlas connection string
+
+### Backend (Express/Mongoose)
+- Location: `my-app/backend`
+- Environment: create `my-app/backend/.env` with at least:
+```
+MONGO_URI=mongodb://localhost:27017/tixflow
+PORT=5050
+```
+- Install & run:
+```
+cd my-app/backend
+npm install
+npm run dev
+```
+- Health check: `curl http://localhost:5050/api/health` → `{ ok: true, db: 'connected' }`
+
+### Frontend (React/Vite)
+- Location: `my-app`
+- Install & run:
+```
+cd my-app
+npm install
+npm run dev
+```
+- Default dev URL: `http://localhost:5173`
+- API proxy: `/api` → `http://localhost:5050` (configured in `vite.config.ts`). Optionally set `VITE_API_URL` to point to a different backend.
+
+For more details and quick commands, see the project root `README.md`.
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js

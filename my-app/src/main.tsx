@@ -7,6 +7,12 @@ import './index.css'
 import App from './App.tsx'
 // ... existing code ...
 
+// Enforce light mode at runtime for all users
+try {
+  document.documentElement.classList.remove('dark');
+  document.documentElement.style.setProperty('color-scheme', 'light');
+} catch {}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
