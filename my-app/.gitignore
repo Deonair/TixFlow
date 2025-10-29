@@ -54,5 +54,6 @@ yarn.lock
 pnpm-lock.yaml
 
 # Backend package files
-/backend/package.json
+# Allow committing backend package.json for server dependencies
+!/backend/package.json
 /backend/package-lock.json
