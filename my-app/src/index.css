@@ -3,3 +3,8 @@
 @import "../node_modules/preline/variants.css";
 @source "../node_modules/preline/dist/*.js";
 @plugin "@tailwindcss/forms";
+
+/* Enforce light mode for all users */
+:root {
+  color-scheme: light;
+}
