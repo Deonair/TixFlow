@@ -48,7 +48,7 @@ pnpm-debug.log*
 .idea/
 
 # Package files (don't commit package managers' files)
-package.json
+# package.json
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
