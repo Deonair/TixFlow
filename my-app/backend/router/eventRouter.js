@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvents, getEventById, updateEventStatus } from '../controller/eventController.js';
+import { createEvent, getEvents, getEventById, updateEventStatus, updateEvent } from '../controller/eventController.js';
 
 const router = express.Router();
 
@@ -14,5 +14,8 @@ router.get('/:id', getEventById);
 
 // Route to update event status
 router.patch('/:id/status', updateEventStatus);
+
+// Route to update event fields
+router.put('/:id', updateEvent);
 
 export default router;

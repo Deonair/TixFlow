@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 
 interface EventFormData {
   title: string;
@@ -7,6 +8,8 @@ interface EventFormData {
   location: string;
   description: string;
 }
+type TicketTypeInput = { name: string; price: string; capacity: string };
+type TicketTypeError = Partial<TicketTypeInput>;
 
 const CHAR_LIMITS = {
   title: 25,
@@ -14,10 +17,10 @@ const CHAR_LIMITS = {
   description: 400
 };
 
-type TicketTypeInput = { name: string; price: string; capacity: string };
-type TicketTypeError = Partial<TicketTypeInput>;
+const EventEdit = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
-function EventForm() {
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     date: '',
@@ -25,32 +28,68 @@ function EventForm() {
     location: '',
     description: ''
   });
+
+  const [errors, setErrors] = useState<Partial<EventFormData>>({});
+  const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeInput[]>([{ name: '', price: '', capacity: '' }]);
   const [ticketErrors, setTicketErrors] = useState<TicketTypeError[]>([]);
 
-  const [errors, setErrors] = useState<Partial<EventFormData>>({});
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const res = await fetch(`/api/events/${id}`);
+        if (!res.ok) throw new Error('Event niet gevonden');
+        const data = await res.json();
+
+        const dt = new Date(data.date);
+        const dateStr = dt.toISOString().slice(0, 10);
+        const timeStr = dt.toISOString().slice(11, 16);
+
+        setFormData({
+          title: data.title || '',
+          date: dateStr,
+          time: timeStr,
+          location: data.location || '',
+          description: data.description || ''
+        });
+
+        const existingTT = Array.isArray(data.ticketTypes) ? data.ticketTypes : [];
+        setTicketTypes(
+          existingTT.length
+            ? existingTT.map((tt: any) => ({
+              name: tt.name ?? '',
+              price: String(tt.price ?? ''),
+              capacity: String(tt.capacity ?? '')
+            }))
+            : [{ name: '', price: '', capacity: '' }]
+        );
+
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Er is een fout opgetreden');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchEvent();
+  }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
-    // Controleer karakterlimieten
     if (CHAR_LIMITS[name as keyof typeof CHAR_LIMITS] &&
       value.length > CHAR_LIMITS[name as keyof typeof CHAR_LIMITS]) {
       return;
     }
 
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    setFormData({ ...formData, [name]: value });
 
-    // Clear error when field is edited
     if (errors[name as keyof EventFormData]) {
-      setErrors({
-        ...errors,
-        [name]: ''
-      });
+      setErrors({ ...errors, [name]: '' });
     }
   };
 
@@ -84,13 +123,13 @@ function EventForm() {
     next[idx] = { ...next[idx], [field]: value };
     setTicketTypes(next);
   };
-
   const addTicketType = () => setTicketTypes(prev => [...prev, { name: '', price: '', capacity: '' }]);
   const removeTicketType = (idx: number) => setTicketTypes(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm() || !id) return;
+    setSubmitLoading(true);
 
     const dateIso = formData.time
       ? new Date(`${formData.date}T${formData.time}:00`).toISOString()
@@ -101,8 +140,8 @@ function EventForm() {
       .map(tt => ({ name: tt.name.trim(), price: Number(tt.price), capacity: Number(tt.capacity) }));
 
     try {
-      const res = await fetch('/api/events', {
-        method: 'POST',
+      const res = await fetch(`/api/events/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title,
@@ -110,7 +149,7 @@ function EventForm() {
           location: formData.location,
           description: formData.description,
           ticketTypes: payloadTicketTypes,
-        }),
+        })
       });
 
       if (!res.ok) {
@@ -118,16 +157,39 @@ function EventForm() {
         throw new Error(msg || `Request failed: ${res.status}`);
       }
 
-      // succes
       setIsSubmitted(true);
     } catch (err: any) {
-      setErrors((prev) => ({
-        ...prev,
-        title: (err.message || 'Er ging iets mis'),
-      }));
+      setErrors((prev) => ({ ...prev, title: (err.message || 'Er ging iets mis') }));
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-xl mx-auto">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+          <button
+            onClick={() => navigate('/events')}
+            className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Terug naar overzicht
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isSubmitted) {
     return (
@@ -137,25 +199,22 @@ function EventForm() {
             <svg className="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
             </svg>
-            <h2 className="mt-3 text-lg font-medium text-gray-900">Event succesvol aangemaakt!</h2>
+            <h2 className="mt-3 text-lg font-medium text-gray-900">Event succesvol bijgewerkt!</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Je event "{formData.title}" is succesvol aangemaakt.
+              Je wijzigingen voor "{formData.title}" zijn opgeslagen.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex gap-3 justify-center">
               <button
-                onClick={() => {
-                  setFormData({
-                    title: '',
-                    date: '',
-                    time: '',
-                    location: '',
-                    description: ''
-                  });
-                  setIsSubmitted(false);
-                }}
+                onClick={() => navigate(`/event/${id}`)}
                 className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               >
-                Nieuw event aanmaken
+                Terug naar details
+              </button>
+              <button
+                onClick={() => setIsSubmitted(false)}
+                className="inline-flex items-center rounded-lg bg-gray-100 px-4 py-2.5 text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+              >
+                Verder bewerken
               </button>
             </div>
           </div>
@@ -167,6 +226,7 @@ function EventForm() {
   return (
     <section className="mx-auto max-w-xl">
       <div className="rounded-lg bg-white shadow-lg p-6">
+        <h1 className="text-xl font-semibold mb-4">Event bewerken</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="w-full">
             <label className="block text-sm font-medium mb-2" htmlFor="title">Titel *</label>
@@ -225,7 +285,6 @@ function EventForm() {
             {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
           </div>
 
-          {/* bestaande velden: titel, datum/tijd, locatie, beschrijving */}
           <div className="w-full">
             <label className="block text-sm font-medium mb-2" htmlFor="description">Beschrijving</label>
             <textarea
@@ -319,9 +378,10 @@ function EventForm() {
           <div className="mt-4">
             <button
               type="submit"
-              className="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              disabled={submitLoading}
+              className="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50"
             >
-              Event Aanmaken
+              {submitLoading ? 'Bezig met opslaan…' : 'Wijzigingen Opslaan'}
             </button>
           </div>
         </form>
@@ -330,4 +390,4 @@ function EventForm() {
   );
 };
 
-export default EventForm;
+export default EventEdit;

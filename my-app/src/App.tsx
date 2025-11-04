@@ -5,6 +5,7 @@ import Navbar from './components/Navbar'
 import EventForm from './components/EventForm'
 import EventList from './components/EventList'
 import EventDetail from './components/EventDetail'
+import EventEdit from './components/EventEdit'
 
 function App() {
   useEffect(() => {
@@ -25,6 +26,7 @@ function App() {
           <Route path="/events" element={<EventList />} />
           <Route path="/event/new" element={<EventForm />} />
           <Route path="/event/:id" element={<EventDetail />} />
+          <Route path="/event/:id/edit" element={<EventEdit />} />
         </Routes>
       </main>
     </Router>
