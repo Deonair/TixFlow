@@ -30,6 +30,7 @@ function EventForm() {
 
   const [errors, setErrors] = useState<Partial<EventFormData>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -117,7 +118,10 @@ function EventForm() {
         const msg = await res.text();
         throw new Error(msg || `Request failed: ${res.status}`);
       }
-
+      const data = await res.json();
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = `${origin}/event/${data?.slug ?? ''}`;
+      setShareUrl(url);
       // succes
       setIsSubmitted(true);
     } catch (err: any) {
@@ -141,7 +145,22 @@ function EventForm() {
             <p className="mt-2 text-sm text-gray-600">
               Je event "{formData.title}" is succesvol aangemaakt.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
+              {shareUrl && (
+                <div className="flex items-center justify-center gap-2">
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    className="w-full max-w-md py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(shareUrl)}
+                    className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+                  >
+                    Kopieer Link
+                  </button>
+                </div>
+              )}
               <button
                 onClick={() => {
                   setFormData({
@@ -151,6 +170,7 @@ function EventForm() {
                     location: '',
                     description: ''
                   });
+                  setShareUrl('');
                   setIsSubmitted(false);
                 }}
                 className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"

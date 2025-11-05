@@ -11,7 +11,7 @@ interface Event {
 }
 
 const EventDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { param } = useParams<{ param: string }>();
   const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,9 @@ const EventDetail = () => {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const response = await fetch(`/api/events/${id}`);
+        const isMongoId = /^[a-fA-F0-9]{24}$/.test(param || '');
+        const url = isMongoId ? `/api/events/${param}` : `/api/events/slug/${param}`;
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Event niet gevonden');
         }
@@ -34,10 +36,10 @@ const EventDetail = () => {
       }
     };
 
-    if (id) {
+    if (param) {
       fetchEvent();
     }
-  }, [id]);
+  }, [param]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);

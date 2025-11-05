@@ -25,7 +25,7 @@ function App() {
           <Route path="/" element={<Navigate to="/events" replace />} />
           <Route path="/events" element={<EventList />} />
           <Route path="/event/new" element={<EventForm />} />
-          <Route path="/event/:id" element={<EventDetail />} />
+          <Route path="/event/:param" element={<EventDetail />} />
           <Route path="/event/:id/edit" element={<EventEdit />} />
         </Routes>
       </main>

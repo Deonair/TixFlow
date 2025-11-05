@@ -1,5 +1,22 @@
 import Event from '../models/eventModel.js';
 
+function baseSlugFromTitle(title) {
+  const base = String(title)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+  return base || 'event';
+}
+
+function randomSuffix(len = 6) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let out = '';
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 // Create a new event
 export const createEvent = async (req, res) => {
   try {
@@ -47,8 +64,19 @@ export const createEvent = async (req, res) => {
       return res.status(400).json({ message: 'TicketTypes validation error', errors: ttErrors });
     }
 
+    // Genereer unieke slug
+    let base = baseSlugFromTitle(title);
+    let candidate = base;
+    let tries = 0;
+    // probeer tot unieke slug gevonden is
+    while (await Event.findOne({ slug: candidate })) {
+      candidate = `${base}-${randomSuffix(6)}`;
+      if (++tries > 10) break; // fail-safe
+    }
+
     const newEvent = new Event({
       title,
+      slug: candidate,
       date: parsedDate,
       location,
       description,
@@ -95,6 +123,25 @@ export const getEventById = async (req, res) => {
     res.json(event);
   } catch (error) {
     console.error('Error fetching event by id:', { params: req.params, error });
+    res.status(500).json({ message: 'Error fetching event', error: error.message });
+  }
+};
+
+// Fetch single event by slug (public, alleen actieve events)
+export const getEventBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (!slug) {
+      return res.status(400).json({ message: 'Missing slug' });
+    }
+
+    const event = await Event.findOne({ slug, status: 'active' });
+    if (!event) {
+      return res.status(404).json({ message: 'Event niet gevonden' });
+    }
+    res.json(event);
+  } catch (error) {
+    console.error('Error fetching event by slug:', { params: req.params, error });
     res.status(500).json({ message: 'Error fetching event', error: error.message });
   }
 };

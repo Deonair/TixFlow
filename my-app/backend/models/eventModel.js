@@ -25,6 +25,12 @@ const eventSchema = new mongoose.Schema({
     required: true,
     maxlength: 25
   },
+  slug: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
+  },
   date: {
     type: Date,
     required: true
