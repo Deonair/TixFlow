@@ -4,7 +4,7 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <header className="flex flex-wrap sm:justify-start sm:flex-nowrap w-full bg-white text-sm py-3 shadow-sm">
+    <header className="flex flex-wrap sm:justify-start sm:flex-nowrap w-full bg-white text-sm py-3">
       <nav className="max-w-[85rem] w-full mx-auto px-4 sm:flex sm:items-center sm:justify-between">
         <Link
           to="/"

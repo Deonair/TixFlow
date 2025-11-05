@@ -17,6 +17,8 @@ function EventDetail() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyTimeoutId, setCopyTimeoutId] = useState<number | null>(null);
 
   const isObjectId = /^[a-fA-F0-9]{24}$/.test(id || '');
 
@@ -38,6 +40,14 @@ function EventDetail() {
     };
     if (id) fetchEvent();
   }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutId) {
+        window.clearTimeout(copyTimeoutId);
+      }
+    };
+  }, [copyTimeoutId]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -175,10 +185,22 @@ function EventDetail() {
                     className="w-full py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
                   />
                   <button
-                    onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/event/${event.slug}`)}
-                    className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+                    onClick={() => {
+                      const url = `${window.location.origin}/event/${event.slug}`;
+                      navigator.clipboard?.writeText(url);
+                      setCopied(true);
+                      if (copyTimeoutId) window.clearTimeout(copyTimeoutId);
+                      const t = window.setTimeout(() => setCopied(false), 2000);
+                      setCopyTimeoutId(t);
+                    }}
+                    disabled={copied}
+                    className={`inline-flex items-center rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      copied
+                        ? 'bg-green-100 text-green-700 hover:bg-green-100 focus:ring-green-300'
+                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-300'
+                    }`}
                   >
-                    Kopieer Link
+                    {copied ? 'Gekopieerd!' : 'Kopieer Link'}
                   </button>
                 </div>
               </div>
