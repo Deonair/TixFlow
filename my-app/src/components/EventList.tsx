@@ -173,7 +173,7 @@ const EventList = () => {
               <div className="flex justify-between items-center mt-4">
                 <button
                   className="text-blue-600 hover:text-blue-800 font-medium"
-                  onClick={() => navigate(`/event/${event._id}`)}
+                  onClick={() => navigate(`/admin/event/${event._id}`)}
                 >
                   Bekijk details →
                 </button>

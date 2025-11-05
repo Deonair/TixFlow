@@ -1,29 +1,31 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 
-interface Event {
-  _id: string;
+interface TicketType {
+  name: string;
+  price: number;
+  capacity: number;
+}
+
+interface EventPublic {
+  slug: string;
   title: string;
   date: string;
   location: string;
-  description: string;
-  slug?: string;
-  ticketTypes?: { name: string; price: number; capacity: number }[];
+  description?: string;
+  ticketTypes?: TicketType[];
 }
 
-function EventDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [event, setEvent] = useState<Event | null>(null);
+const EventLanding = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const [event, setEvent] = useState<EventPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const isObjectId = /^[a-fA-F0-9]{24}$/.test(id || '');
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const response = await fetch(`/api/events/${id}`);
+        const response = await fetch(`/api/events/slug/${slug}`);
         if (!response.ok) {
           throw new Error('Event niet gevonden');
         }
@@ -36,8 +38,8 @@ function EventDetail() {
         setLoading(false);
       }
     };
-    if (id) fetchEvent();
-  }, [id]);
+    if (slug) fetchEvent();
+  }, [slug]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -70,18 +72,10 @@ function EventDetail() {
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">
-                  {error || 'Event niet gevonden'}
-                </p>
+                <p className="text-sm text-red-700">{error || 'Event niet gevonden'}</p>
               </div>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/admin/events')}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Terug naar overzicht
-          </button>
         </div>
       </div>
     );
@@ -90,31 +84,9 @@ function EventDetail() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={() => navigate('/admin/events')}
-            className="inline-flex items-center text-blue-600 hover:text-blue-800"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Terug naar overzicht
-          </button>
-
-          {isObjectId && (
-            <button
-              onClick={() => navigate(`/admin/event/${event?._id}/edit`)}
-              className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Bewerk Event
-            </button>
-          )}
-        </div>
-
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-6">
             <h1 className="text-2xl font-bold mb-4">{event.title}</h1>
-            
             <div className="space-y-4">
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +98,7 @@ function EventDetail() {
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 006 0z" />
                 </svg>
                 <span className="text-gray-600">{event.location}</span>
               </div>
@@ -164,25 +136,16 @@ function EventDetail() {
                   </div>
                 </div>
               )}
-            </div>
-            {event.slug && (
-              <div className="mt-8">
-                <h2 className="text-lg font-semibold mb-3">Publieke link</h2>
-                <div className="flex items-center gap-2">
-                  <input
-                    readOnly
-                    value={`${window.location.origin}/event/${event.slug}`}
-                    className="w-full py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
-                  />
-                  <button
-                    onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/event/${event.slug}`)}
-                    className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
-                  >
-                    Kopieer Link
-                  </button>
-                </div>
+
+              <div className="mt-6">
+                <button
+                  className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  onClick={() => alert('Koop Tickets flow volgt in latere user story')}
+                >
+                  Koop Tickets
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -190,4 +153,4 @@ function EventDetail() {
   );
 };
 
-export default EventDetail;
+export default EventLanding;

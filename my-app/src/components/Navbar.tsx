@@ -14,9 +14,9 @@ const Navbar = () => {
         </Link>
         <div className="flex flex-row items-center gap-5 mt-5 sm:justify-end sm:mt-0 sm:ps-5">
           <Link
-            to="/events"
+            to="/admin/events"
             className={`font-medium ${
-              location.pathname === '/events'
+              location.pathname === '/admin/events'
                 ? 'text-blue-600'
                 : 'text-gray-600 hover:text-blue-600'
             } focus:outline-none`}
@@ -24,9 +24,9 @@ const Navbar = () => {
             Events
           </Link>
           <Link
-            to="/event/new"
+            to="/admin/event/new"
             className={`font-medium ${
-              location.pathname === '/event/new'
+              location.pathname === '/admin/event/new'
                 ? 'text-blue-600'
                 : 'text-gray-600 hover:text-blue-600'
             } focus:outline-none`}

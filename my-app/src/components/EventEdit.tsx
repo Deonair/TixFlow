@@ -181,7 +181,7 @@ const EventEdit = () => {
             <p className="text-sm text-red-700">{error}</p>
           </div>
           <button
-            onClick={() => navigate('/events')}
+            onClick={() => navigate('/admin/events')}
             className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
           >
             Terug naar overzicht
@@ -205,7 +205,7 @@ const EventEdit = () => {
             </p>
             <div className="mt-6 flex gap-3 justify-center">
               <button
-                onClick={() => navigate(`/event/${id}`)}
+                onClick={() => navigate(`/admin/event/${id}`)}
                 className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               >
                 Terug naar details
