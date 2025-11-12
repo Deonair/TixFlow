@@ -25,6 +25,12 @@ jobs:
         with:
           node-version: '25'
 
+      - name: 2b. Resolve Node Path
+        shell: powershell
+        run: |
+          $node = (Get-Command node).Source
+          echo "NODE_PATH=$node" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: 3. Install Frontend Dependencies
         shell: powershell
         run: npm install
@@ -45,6 +51,11 @@ jobs:
           Remove-Item -Path "C:\TixFlow\wwwroot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\dist\*" -Destination "C:\TixFlow\wwwroot" -Recurse -Force
 
+      - name: 6c. Ensure web.config for IIS proxy
+        shell: powershell
+        run: |
+          Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
+
       - name: 6b. Install Backend Dependencies
         shell: powershell
         run: npm install
@@ -53,4 +64,17 @@ jobs:
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
         run: |
-          Start-Process -FilePath "node" -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow
+          $node = $env:NODE_PATH
+          if (-not $node) { $node = (Get-Command node).Source }
+          Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow
+
+      - name: 8. Verify Backend Health
+        shell: powershell
+        run: |
+          Start-Sleep -Seconds 3
+          try {
+            $resp = Invoke-RestMethod -Uri 'http://localhost:5050/api/health' -Method Get -TimeoutSec 5
+            Write-Host ($resp | ConvertTo-Json)
+          } catch {
+            Write-Host "Backend health check failed."
+          }
