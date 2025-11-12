@@ -41,6 +41,3 @@ jobs:
       - name: 7. Start Backend Server (Finale Start)
         run: |
           Start-Process -FilePath "node" -ArgumentList "index.js" -WorkingDirectory "my-app/backend" -NoNewWindow
-
-      - name: 8. Restart Runner Listener (Runner weer actief maken)
-        run: .\run.cmd
