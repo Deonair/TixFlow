@@ -31,6 +31,36 @@ jobs:
           $node = (Get-Command node).Source
           echo "NODE_PATH=$node" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: 2c. Ensure MongoDB Running (Service or Local mongod)
+        shell: powershell
+        run: |
+          $svc = Get-Service -Name 'MongoDB' -ErrorAction SilentlyContinue
+          if ($svc) {
+            if ($svc.Status -ne 'Running') {
+              Start-Service -Name 'MongoDB'
+              Write-Host 'Started MongoDB Windows service.'
+            } else {
+              Write-Host 'MongoDB Windows service already running.'
+            }
+          } else {
+            Write-Host 'MongoDB service not found; trying to start local mongod.'
+            $dataPath = 'C:\TixFlow\Mongo\data'
+            New-Item -ItemType Directory -Path $dataPath -ErrorAction SilentlyContinue | Out-Null
+            # Try common install path, fallback to custom path
+            $mongod = 'C:\Program Files\MongoDB\Server\7.0\bin\mongod.exe'
+            if (-not (Test-Path $mongod)) { $mongod = 'C:\Program Files\MongoDB\Server\6.0\bin\mongod.exe' }
+            if (-not (Test-Path $mongod)) { $mongod = 'C:\TixFlow\Mongo\bin\mongod.exe' }
+            if (Test-Path $mongod) {
+              $args = "--dbpath $dataPath --bind_ip 127.0.0.1 --port 27017"
+              $proc = Start-Process -FilePath $mongod -ArgumentList $args -NoNewWindow -PassThru
+              Set-Content -Path 'C:\TixFlow\ProjectRoot\mongo.pid' -Value $proc.Id
+              Write-Host "Started mongod. PID: $($proc.Id)"
+            } else {
+              Write-Host 'mongod.exe not found. Please install MongoDB or adjust path.'
+            }
+          }
+          Start-Sleep -Seconds 3
+
       - name: 3. Install Frontend Dependencies
         shell: powershell
         run: npm install
