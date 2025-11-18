@@ -140,28 +140,19 @@ jobs:
         run: npm install
         working-directory: C:\TixFlow\ProjectRoot\my-app\backend
 
-      - name: 6c2. Install PM2 Windows Service (optional via secret)
+      - name: 6c2. Configure PM2 auto-resurrect at startup (non-interactive)
         shell: powershell
-        env:
-          PM2_ADMIN_PASSWORD: ${{ secrets.PM2_ADMIN_PASSWORD }}
-          PM2_ADMIN_USER: ${{ secrets.PM2_ADMIN_USER }}
         run: |
-          # Installeer pm2 en probeer een Windows service op te zetten als er credentials zijn
+          # Gebruik een scheduled task onder SYSTEM zodat PM2 processen automatisch terugkomen bij boot
           npm install -g pm2
-          $user = if ($env:PM2_ADMIN_USER) { $env:PM2_ADMIN_USER } else { 'Administrator' }
-          $pwd = $env:PM2_ADMIN_PASSWORD
-          if ($pwd) {
-            Write-Host "Installing pm2-windows-service for persistent daemon..."
-            npm install -g pm2-windows-service
-            try {
-              pm2-service-install -n pm2-tixflow -u $user -p $pwd
-              Write-Host "pm2 Windows service installed."
-            } catch {
-              Write-Host "pm2-service-install failed: $($_.Exception.Message)"
-            }
-          } else {
-            Write-Host "PM2_ADMIN_PASSWORD not provided; skipping Windows service install."
-          }
+          pm2 save
+          $taskName = 'PM2-Resurrect-TixFlow'
+          try { schtasks /Delete /TN $taskName /F | Out-Null } catch {}
+          $pm2 = Get-Command pm2 -ErrorAction Stop
+          $pm2Exe = $pm2.Source
+          $tr = '"' + $pm2Exe + '" resurrect'
+          schtasks /Create /SC ONSTART /TN $taskName /TR $tr /RL HIGHEST /RU SYSTEM /F
+          Write-Host 'Scheduled task created for PM2 resurrect at startup.'
 
       - name: 6d. Install PM2 and (re)start backend daemon
         shell: powershell
