@@ -20,6 +20,8 @@ function randomSuffix(len = 6) {
 // Create a new event
 export const createEvent = async (req, res) => {
   try {
+    const userId = req.session?.user?.id
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' })
     const { title, date, location, description, ticketTypes } = req.body || {};
 
     // Basale validatie
@@ -80,6 +82,7 @@ export const createEvent = async (req, res) => {
       date: parsedDate,
       location,
       description,
+      owner: userId,
       ticketTypes: normalizedTicketTypes.map(tt => ({
         name: String(tt.name).trim(),
         price: Number(tt.price),
@@ -98,9 +101,11 @@ export const createEvent = async (req, res) => {
 };
 
 // Fetch all events
-export const getEvents = async (_req, res) => {
+export const getEvents = async (req, res) => {
   try {
-    const events = await Event.find().sort({ date: 1 });
+    const userId = req.session?.user?.id
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' })
+    const events = await Event.find({ owner: userId }).sort({ date: 1 });
     res.json(events);
   } catch (error) {
     console.error('Error fetching events:', error);
@@ -111,6 +116,8 @@ export const getEvents = async (_req, res) => {
 // Fetch single event by ID
 export const getEventById = async (req, res) => {
   try {
+    const userId = req.session?.user?.id
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' })
     const { id } = req.params;
     if (!id) {
       return res.status(400).json({ message: 'Missing event id' });
@@ -119,6 +126,9 @@ export const getEventById = async (req, res) => {
     const event = await Event.findById(id);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
+    }
+    if (String(event.owner) !== String(userId)) {
+      return res.status(403).json({ message: 'Forbidden' })
     }
     res.json(event);
   } catch (error) {
@@ -149,6 +159,8 @@ export const getEventBySlug = async (req, res) => {
 // Update event status
 export const updateEventStatus = async (req, res) => {
   try {
+    const userId = req.session?.user?.id
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' })
     const { id } = req.params;
     const { status } = req.body || {};
 
@@ -160,11 +172,11 @@ export const updateEventStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status', allowed });
     }
 
-    const updated = await Event.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
+    const existing = await Event.findById(id)
+    if (!existing) return res.status(404).json({ message: 'Event not found' })
+    if (String(existing.owner) !== String(userId)) return res.status(403).json({ message: 'Forbidden' })
+
+    const updated = await Event.findByIdAndUpdate(id, { status }, { new: true });
 
     if (!updated) {
       return res.status(404).json({ message: 'Event not found' });
@@ -180,6 +192,8 @@ export const updateEventStatus = async (req, res) => {
 // Update event fields (title, date, location, description)
 export const updateEvent = async (req, res) => {
   try {
+    const userId = req.session?.user?.id
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' })
     const { id } = req.params;
     const { title, date, location, description, ticketTypes } = req.body || {};
 
@@ -243,6 +257,10 @@ export const updateEvent = async (req, res) => {
       description,
       ...(typeof normalizedTicketTypes !== 'undefined' ? { ticketTypes: normalizedTicketTypes } : {})
     };
+
+    const existing = await Event.findById(id)
+    if (!existing) return res.status(404).json({ message: 'Event not found' })
+    if (String(existing.owner) !== String(userId)) return res.status(403).json({ message: 'Forbidden' })
 
     const updated = await Event.findByIdAndUpdate(id, updateFields, { new: true });
     if (!updated) {

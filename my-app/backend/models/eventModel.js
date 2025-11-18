@@ -25,6 +25,12 @@ const eventSchema = new mongoose.Schema({
     required: true,
     maxlength: 25
   },
+  owner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organizer',
+    required: true,
+    index: true
+  },
   slug: {
     type: String,
     required: true,

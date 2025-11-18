@@ -59,7 +59,7 @@ const Register = () => {
     if (!validate()) return
     setSubmitLoading(true)
     try {
-      const res = await fetch('/api/organizers/register', {
+      const res = await fetch('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +79,7 @@ const Register = () => {
       localStorage.setItem('hasRegistered', '1')
       setIsSubmitted(true)
       if (typeof window !== 'undefined') {
-        window.location.assign('/organizer')
+        window.location.assign('/admin/events')
       }
     } finally {
       setSubmitLoading(false)

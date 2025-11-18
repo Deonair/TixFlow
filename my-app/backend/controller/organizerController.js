@@ -23,3 +23,46 @@ export const registerOrganizer = async (req, res) => {
     return res.status(500).json({ message: 'Error registering', error: error.message })
   }
 }
+
+export const loginOrganizer = async (req, res) => {
+  try {
+    const { email, password } = req.body || {}
+    const emailStr = String(email || '').toLowerCase().trim()
+    const passStr = String(password || '')
+    if (!/\S+@\S+\.\S+/.test(emailStr) || !passStr) {
+      return res.status(400).json({ message: 'Invalid credentials' })
+    }
+    const user = await Organizer.findOne({ email: emailStr })
+    if (!user) return res.status(401).json({ message: 'Incorrect email or password' })
+    const ok = await bcrypt.compare(passStr, user.passwordHash)
+    if (!ok) return res.status(401).json({ message: 'Incorrect email or password' })
+    // set session
+    req.session.user = { id: String(user._id), email: user.email, name: user.name, organization: user.organization }
+    return res.json({ id: user._id, email: user.email, name: user.name, organization: user.organization })
+  } catch (error) {
+    return res.status(500).json({ message: 'Error logging in', error: error.message })
+  }
+}
+
+export const logoutOrganizer = (req, res) => {
+  try {
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid')
+      res.json({ ok: true })
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Error logging out', error: error.message })
+  }
+}
+
+export const me = async (req, res) => {
+  const sessionUser = req.session?.user
+  if (!sessionUser) return res.status(401).json({ message: 'Not authenticated' })
+  try {
+    const doc = await Organizer.findById(sessionUser.id).lean()
+    if (!doc) return res.status(404).json({ message: 'User not found' })
+    return res.json({ id: String(doc._id), name: doc.name, email: doc.email, organization: doc.organization })
+  } catch (error) {
+    return res.status(500).json({ message: 'Error fetching user', error: error.message })
+  }
+}

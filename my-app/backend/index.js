@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import eventRouter from './router/eventRouter.js';
 import organizerRouter from './router/organizerRouter.js';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 
 dotenv.config();
 
@@ -26,8 +28,27 @@ mongoose.connect(uri, {
   .catch(err => console.error('MongoDB connection error:', err));
 
 
+// Vertrouw proxy (IIS) zodat secure cookies correct werken
+app.set('trust proxy', 1);
+
+// Server-side sessies met Mongo store
+const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
+app.use(session({
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({ mongoUrl: uri, ttl: 60 * 60 * 24 * 7 }),
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'
+  }
+}));
+
+
 app.use('/api/events', eventRouter);
-app.use('/api/organizers', organizerRouter);
+// Organizers hernoemd naar users: mount onder /api/users
+app.use('/api/users', organizerRouter);
 
 // Health endpoint voor snelle check
 app.get('/api/health', (_req, res) => {
