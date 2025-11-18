@@ -175,9 +175,20 @@ jobs:
           if (Test-Path $chocoNssm) {
             $nssmExe = $chocoNssm
           } else {
-            # Probeer via Chocolatey te installeren/upgraden
+            # Probeer via Chocolatey te installeren/upgraden (zonder '||', met try/catch)
             if (Get-Command choco -ErrorAction SilentlyContinue) {
-              choco install nssm -y --no-progress || choco upgrade nssm -y --no-progress
+              try {
+                choco install nssm -y --no-progress
+              } catch {
+                Write-Host ("Chocolatey install failed: {0}" -f $_.Exception.Message)
+              }
+              if (-not (Test-Path $chocoNssm)) {
+                try {
+                  choco upgrade nssm -y --no-progress
+                } catch {
+                  Write-Host ("Chocolatey upgrade failed: {0}" -f $_.Exception.Message)
+                }
+              }
               if (Test-Path $chocoNssm) { $nssmExe = $chocoNssm }
             }
       
@@ -197,7 +208,7 @@ jobs:
                   $downloaded = $true
                   break
                 } catch {
-                  Write-Host "Download failed from $u: $($_.Exception.Message)"
+                  Write-Host ("Download failed from {0}: {1}" -f $u, $_.Exception.Message)
                 }
               }
               if (-not $downloaded) { throw "Failed to download NSSM zip from all sources" }
