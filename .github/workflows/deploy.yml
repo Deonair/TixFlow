@@ -42,7 +42,41 @@ jobs:
         working-directory: C:\TixFlow\ProjectRoot\my-app
 
       - name: 5. Stop Old Backend Server (Cruciaal voor herstart)
-        run: Stop-Process -Name "node" -ErrorAction SilentlyContinue
+        shell: powershell
+        run: |
+          $pidFile = "C:\TixFlow\ProjectRoot\backend.pid"
+          $backendPath = "C:\TixFlow\ProjectRoot\my-app\backend"
+
+          # 1) Probeer eerst via PID-bestand te stoppen (meest betrouwbaar)
+          if (Test-Path $pidFile) {
+            try {
+              $pid = Get-Content $pidFile | Select-Object -First 1
+              if ($pid) {
+                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped backend by PID $pid"
+              } else {
+                Write-Host "PID file empty. Fallback to process scan."
+              }
+            } catch {
+              Write-Host "Stop by PID failed, fallback to process scan."
+            }
+          }
+
+          # 2) Fallback: vind gerichte Node-processen die in backend draaien en stop ze
+          try {
+            $nodeProcs = Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^node(\.exe)?$' -and $_.CommandLine -like "*${backendPath}*" }
+            if ($nodeProcs) {
+              foreach ($p in $nodeProcs) {
+                try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+              }
+              Write-Host "Stopped $($nodeProcs.Count) node backend process(es)."
+            } else {
+              Write-Host "No node backend process found."
+            }
+          } catch {
+            Write-Host "Process scan failed; continuing without stopping."
+          }
 
       - name: 6. Copy Frontend Files to IIS Root
         shell: powershell
@@ -66,7 +100,10 @@ jobs:
         run: |
           $node = $env:NODE_PATH
           if (-not $node) { $node = (Get-Command node).Source }
-          Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow
+          $proc = Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow -PassThru
+          # Bewaar PID voor gecontroleerde stop bij volgende deploy
+          Set-Content -Path "C:\TixFlow\ProjectRoot\backend.pid" -Value $proc.Id
+          Write-Host "Backend started. PID: $($proc.Id)"
 
       - name: 8. Verify Backend Health
         shell: powershell
