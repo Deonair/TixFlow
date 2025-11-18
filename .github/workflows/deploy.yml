@@ -216,7 +216,11 @@ jobs:
             Expand-Archive -Path $zip -DestinationPath $extractDir -Force
             $srcExe64 = Join-Path $extractDir 'nssm-2.24\win64\nssm.exe'
             $srcExe32 = Join-Path $extractDir 'nssm-2.24\win32\nssm.exe'
-            $srcExe = (Test-Path $srcExe64) ? $srcExe64 : $srcExe32
+            if (Test-Path $srcExe64) {
+              $srcExe = $srcExe64
+            } else {
+              $srcExe = $srcExe32
+            }
             if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
 
             New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
