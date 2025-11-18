@@ -227,14 +227,7 @@ jobs:
           if (-not (Test-Path $nssmExe)) { throw "NSSM executable not found: $nssmExe" }
 
           Write-Host "NSSM located at: $nssmExe"
-          # Belangrijk: expliciet CLI aanroepen, geen GUI
-          try {
-            $proc = Start-Process -FilePath $nssmExe -ArgumentList 'version' -NoNewWindow -PassThru -Wait
-            Write-Host ("nssm version exited with code {0}" -f $proc.ExitCode)
-          } catch {
-            Write-Host ("nssm version call failed: {0}" -f $_.Exception.Message)
-          }
-          # Export NSSM_EXE voor volgende stappen, gebruik Add-Content om encoding issues te vermijden
+          # Export NSSM_EXE voor volgende stappen
           Add-Content -Path $env:GITHUB_ENV -Value ("NSSM_EXE={0}" -f $nssmExe)
 
       - name: 6f. Configure Windows Service for backend via NSSM
@@ -263,18 +256,17 @@ jobs:
           }
       
           # Installeren via CLI (geen GUI)
-          $installArgs = "install $service \"$nodeExe\" \"$script\""
-          Start-Process -FilePath $nssmExe -ArgumentList $installArgs -NoNewWindow -Wait
+          & $nssmExe install $service "$nodeExe" "$script"
       
           # Configuratie en logging
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppDirectory \"$backendDir\"" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service Start SERVICE_AUTO_START" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppStdout \"$logDir\backend.out.log\"" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppStderr \"$logDir\backend.err.log\"" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppStopMethodSkip 0" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppThrottle 2000" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "set $service AppRestartDelay 5000" -NoNewWindow -Wait
-          Start-Process -FilePath $nssmExe -ArgumentList "start $service" -NoNewWindow -Wait
+          & $nssmExe set $service AppDirectory "$backendDir"
+          & $nssmExe set $service Start SERVICE_AUTO_START
+          & $nssmExe set $service AppStdout "$logDir\backend.out.log"
+          & $nssmExe set $service AppStderr "$logDir\backend.err.log"
+          & $nssmExe set $service AppStopMethodSkip 0
+          & $nssmExe set $service AppThrottle 2000
+          & $nssmExe set $service AppRestartDelay 5000
+          & $nssmExe start $service
       
           sc query $service
 
