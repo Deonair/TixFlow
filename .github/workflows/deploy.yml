@@ -252,6 +252,9 @@ jobs:
           $script = Join-Path $backendDir 'index.js'
           $logDir = 'C:\TixFlow\Logs'
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          if (-not (Test-Path $script)) { throw "Backend entry script not found: $script" }
+          try { $nodeVer = (& $nodeExe -v) } catch { $nodeVer = 'unknown' }
+          Write-Host ("Node version for service exe: {0}" -f $nodeVer)
       
           # Bestaande service detecteren en veilig updaten
           $existing = Get-Service -Name $service -ErrorAction SilentlyContinue
@@ -273,17 +276,39 @@ jobs:
           & $nssmExe set $service AppStopMethodSkip 0
           & $nssmExe set $service AppThrottle 2000
           & $nssmExe set $service AppRestartDelay 5000
-          # Preflight: installeer altijd dependencies in de deploy-locatie
+          # Preflight: installeer altijd dependencies in de deploy-locatie met strikte exit-code checks
           $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
           if (-not $npmCmd) { $npmCmd = 'C:\Program Files\nodejs\npm.cmd' }
           Write-Host ("Installing backend dependencies in {0} (production only)..." -f $backendDir)
           Push-Location $backendDir
+          $installOk = $false
           try {
             & $npmCmd ci --omit=dev
+            if ($LASTEXITCODE -eq 0) { $installOk = $true } else { Write-Host ("npm ci exit code: {0}" -f $LASTEXITCODE) }
           } catch {
-            Write-Host ("npm ci failed, falling back to npm install --production: {0}" -f $_.Exception.Message)
-            & $npmCmd install --production
-          } finally { Pop-Location }
+            Write-Host ("npm ci threw: {0}" -f $_.Exception.Message)
+          }
+          if (-not $installOk) {
+            Write-Host "Falling back to npm install --production..."
+            try {
+              & $npmCmd install --production
+              if ($LASTEXITCODE -eq 0) { $installOk = $true } else { Write-Host ("npm install exit code: {0}" -f $LASTEXITCODE) }
+            } catch {
+              Write-Host ("npm install threw: {0}" -f $_.Exception.Message)
+            }
+          }
+          Pop-Location
+          if (-not $installOk) { throw "Dependency installation failed (npm)." }
+          # Verifieer kritieke packages aanwezig
+          $expressPkg = Join-Path $backendDir 'node_modules\express\package.json'
+          $mongoosePkg = Join-Path $backendDir 'node_modules\mongoose\package.json'
+          $hasExpress = Test-Path $expressPkg
+          $hasMongoose = Test-Path $mongoosePkg
+          Write-Host ("Dependency check: express={0} mongoose={1}" -f $hasExpress, $hasMongoose)
+          if (-not $hasExpress -or -not $hasMongoose) { throw ("Dependencies missing after install. express={0} mongoose={1}" -f $hasExpress, $hasMongoose) }
+          # Reset logs voor duidelijke nieuwe start
+          if (Test-Path "$logDir\backend.out.log") { Clear-Content "$logDir\backend.out.log" }
+          if (Test-Path "$logDir\backend.err.log") { Clear-Content "$logDir\backend.err.log" }
           # Start of herstart service en wacht totdat deze RUNNING is
           try {
             if ($existing) { & $nssmExe restart $service } else { & $nssmExe start $service }
@@ -291,7 +316,7 @@ jobs:
             Write-Host ("nssm start/restart threw: {0}" -f $_.Exception.Message)
           }
 
-          $maxAttempts = 15
+          $maxAttempts = 30
           $attempt = 0
           $statusStr = ""
           do {
