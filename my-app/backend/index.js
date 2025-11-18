@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import eventRouter from './router/eventRouter.js';   // ← import je router
+import eventRouter from './router/eventRouter.js';
+import organizerRouter from './router/organizerRouter.js';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ mongoose.connect(uri, {
 
 
 app.use('/api/events', eventRouter);
+app.use('/api/organizers', organizerRouter);
 
 // Health endpoint voor snelle check
 app.get('/api/health', (_req, res) => {

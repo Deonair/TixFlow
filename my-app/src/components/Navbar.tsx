@@ -3,6 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 const Navbar = () => {
   const location = useLocation();
 
+  const hasRegistered = (typeof window !== 'undefined' && window.localStorage.getItem('hasRegistered') === '1')
+  const isAdminRoute = location.pathname.startsWith('/admin')
+
   return (
     <header className="flex flex-wrap sm:justify-start sm:flex-nowrap w-full bg-white text-sm py-3">
       <nav className="max-w-[85rem] w-full mx-auto px-4 sm:flex sm:items-center sm:justify-between">
@@ -13,25 +16,39 @@ const Navbar = () => {
           TixFlow
         </Link>
         <div className="flex flex-row items-center gap-5 mt-5 sm:justify-end sm:mt-0 sm:ps-5">
+          {!isAdminRoute && (
+            <>
+              <Link
+                to="/admin/events"
+                className={`font-medium ${
+                  location.pathname === '/admin/events'
+                    ? 'text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600'
+                } focus:outline-none`}
+              >
+                Events
+              </Link>
+              <Link
+                to="/admin/event/new"
+                className={`font-medium ${
+                  location.pathname === '/admin/event/new'
+                    ? 'text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600'
+                } focus:outline-none`}
+              >
+                Nieuw Event
+              </Link>
+            </>
+          )}
           <Link
-            to="/admin/events"
+            to={hasRegistered ? '/organizer' : '/register'}
             className={`font-medium ${
-              location.pathname === '/admin/events'
+              location.pathname === (hasRegistered ? '/organizer' : '/register')
                 ? 'text-blue-600'
                 : 'text-gray-600 hover:text-blue-600'
             } focus:outline-none`}
           >
-            Events
-          </Link>
-          <Link
-            to="/admin/event/new"
-            className={`font-medium ${
-              location.pathname === '/admin/event/new'
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            } focus:outline-none`}
-          >
-            Nieuw Event
+            {hasRegistered ? 'Login' : 'Registreer'}
           </Link>
         </div>
       </nav>
