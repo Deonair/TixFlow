@@ -266,7 +266,34 @@ jobs:
           & $nssmExe set $service AppStopMethodSkip 0
           & $nssmExe set $service AppThrottle 2000
           & $nssmExe set $service AppRestartDelay 5000
-          & $nssmExe start $service
+          # Start service en wacht totdat deze RUNNING is (geen GUI, robuuste afhandeling)
+          try {
+            & $nssmExe start $service
+          } catch {
+            Write-Host ("nssm start threw: {0}" -f $_.Exception.Message)
+          }
+
+          $maxAttempts = 15
+          $attempt = 0
+          $status = ""
+          do {
+            $attempt += 1
+            $status = (& $nssmExe status $service) 2>&1
+            Write-Host ("NSSM status attempt {0}: {1}" -f $attempt, $status)
+            if ($status -match "SERVICE_RUNNING") { break }
+            Start-Sleep -Seconds 2
+          } while ($attempt -lt $maxAttempts -and $status -match "SERVICE_START_PENDING")
+
+          if ($status -match "SERVICE_RUNNING") {
+            Write-Host "Service reached RUNNING state."
+          } else {
+            Write-Host ("Service failed to reach RUNNING. Final status: {0}" -f $status)
+            if (Test-Path "$logDir\backend.err.log") { Write-Host "--- backend.err.log (tail) ---"; Get-Content -Path "$logDir\backend.err.log" -Tail 50 | Write-Host }
+            if (Test-Path "$logDir\backend.out.log") { Write-Host "--- backend.out.log (tail) ---"; Get-Content -Path "$logDir\backend.out.log" -Tail 50 | Write-Host }
+            Write-Host "SC QUERY output:"
+            sc query $service
+            throw "Service did not reach RUNNING state."
+          }
       
           sc query $service
 
