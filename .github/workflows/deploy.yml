@@ -219,8 +219,13 @@ jobs:
               if (Test-Path $srcExe64) { $srcExe = $srcExe64 } else { $srcExe = $srcExe32 }
               if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
       
-              Copy-Item -Path $srcExe -Destination $fallbackExe -Force
-              $nssmExe = $fallbackExe
+              try {
+                Copy-Item -Path $srcExe -Destination $fallbackExe -Force -ErrorAction Stop
+                Write-Host ("Copied NSSM to fallback: {0}" -f $fallbackExe)
+              } catch {
+                Write-Host ("Skip copy to fallback; file locked or in use: {0}" -f $_.Exception.Message)
+              }
+              if (Test-Path $fallbackExe) { $nssmExe = $fallbackExe } else { $nssmExe = $srcExe }
             }
           }
       
