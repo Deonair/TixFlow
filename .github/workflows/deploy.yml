@@ -181,3 +181,34 @@ jobs:
           } catch {
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
           }
+
+      - name: 8c. Diagnostic POST tests (direct and via proxy)
+        shell: powershell
+        run: |
+          $body = @{ name = 'Diag User'; email = "diag+$(Get-Random)@tixflow.local"; organization = 'Diag Org'; password = 'Passw0rd!' } | ConvertTo-Json
+          Write-Host 'Testing direct backend POST /api/users/register'
+          try {
+            $resp = Invoke-WebRequest -Uri 'http://localhost:5050/api/users/register' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8 -UseBasicParsing
+            Write-Host "Direct backend register status: $($resp.StatusCode)"
+            Write-Host $resp.Content
+          } catch {
+            Write-Host "Direct backend register failed: $($_.Exception.Message)"
+          }
+
+          Write-Host 'Testing IIS proxy POST /api/users/register'
+          try {
+            $resp2 = Invoke-WebRequest -Uri 'http://localhost/api/users/register' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8 -UseBasicParsing
+            Write-Host "IIS proxy register status: $($resp2.StatusCode)"
+            Write-Host $resp2.Content
+          } catch {
+            Write-Host "IIS proxy register failed: $($_.Exception.Message)"
+          }
+
+      - name: 8d. Port and process diagnostics
+        shell: powershell
+        run: |
+          Write-Host 'Listing listeners on :5050'
+          try { netstat -ano | Select-String ':5050' | ForEach-Object { $_.Line } } catch {}
+          Write-Host 'PM2 process list (if installed)'
+          $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
+          if ($pm2) { pm2 list } else { Write-Host 'PM2 not found' }
