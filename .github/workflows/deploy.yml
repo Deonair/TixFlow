@@ -77,9 +77,14 @@ jobs:
           # Probeer eerst via PM2 als beschikbaar
           $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
           if ($pm2) {
-            try { pm2 stop tixflow-backend } catch {}
-            try { pm2 delete tixflow-backend } catch {}
-            Write-Host "PM2 backend stopped/deleted if existed."
+            $exists = pm2 list --no-color | Select-String -SimpleMatch 'tixflow-backend'
+            if ($exists) {
+              try { pm2 stop tixflow-backend | Out-Null } catch {}
+              try { pm2 delete tixflow-backend | Out-Null } catch {}
+              Write-Host "PM2 backend stopped/deleted."
+            } else {
+              Write-Host "PM2: process 'tixflow-backend' not found; skipping stop/delete."
+            }
           }
 
           $pidFile = "C:\TixFlow\ProjectRoot\backend.pid"
@@ -115,6 +120,8 @@ jobs:
           } catch {
             Write-Host "Process scan failed; continuing without stopping."
           }
+          # Zorg dat deze stap nooit faalt als er niets te stoppen valt
+          $global:LASTEXITCODE = 0
 
       - name: 6. Copy Frontend Files to IIS Root
         shell: powershell
