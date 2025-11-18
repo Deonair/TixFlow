@@ -74,6 +74,14 @@ jobs:
       - name: 5. Stop Old Backend Server (Cruciaal voor herstart)
         shell: powershell
         run: |
+          # Probeer eerst via PM2 als beschikbaar
+          $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
+          if ($pm2) {
+            try { pm2 stop tixflow-backend } catch {}
+            try { pm2 delete tixflow-backend } catch {}
+            Write-Host "PM2 backend stopped/deleted if existed."
+          }
+
           $pidFile = "C:\TixFlow\ProjectRoot\backend.pid"
           $backendPath = "C:\TixFlow\ProjectRoot\my-app\backend"
 
@@ -125,15 +133,32 @@ jobs:
         run: npm install
         working-directory: C:\TixFlow\ProjectRoot\my-app\backend
 
+      - name: 6d. Install PM2 and (re)start backend daemon
+        shell: powershell
+        run: |
+          npm install -g pm2
+          # Stop oude PM2 proces als het bestaat
+          try { pm2 stop tixflow-backend } catch {}
+          try { pm2 delete tixflow-backend } catch {}
+          # Start nieuwe backend onder PM2 met juiste CWD
+          pm2 start index.js --name tixflow-backend --cwd "C:\TixFlow\ProjectRoot\my-app\backend"
+          pm2 save
+
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
         run: |
-          $node = $env:NODE_PATH
-          if (-not $node) { $node = (Get-Command node).Source }
-          $proc = Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow -PassThru
-          # Bewaar PID voor gecontroleerde stop bij volgende deploy
-          Set-Content -Path "C:\TixFlow\ProjectRoot\backend.pid" -Value $proc.Id
-          Write-Host "Backend started. PID: $($proc.Id)"
+          # Als PM2 beschikbaar is, beheren we de backend via PM2 en slaan deze stap over
+          $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
+          if (-not $pm2) {
+            $node = $env:NODE_PATH
+            if (-not $node) { $node = (Get-Command node).Source }
+            $proc = Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow -PassThru
+            # Bewaar PID voor gecontroleerde stop bij volgende deploy
+            Set-Content -Path "C:\TixFlow\ProjectRoot\backend.pid" -Value $proc.Id
+            Write-Host "Backend started without PM2. PID: $($proc.Id)"
+          } else {
+            Write-Host "Backend managed by PM2 (tixflow-backend)."
+          }
 
       - name: 8. Verify Backend Health
         shell: powershell
