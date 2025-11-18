@@ -163,17 +163,67 @@ jobs:
       - name: 6e. Install NSSM (Non-Sucking Service Manager)
         shell: powershell
         run: |
-          $nssmDir = 'C:\Tools\nssm'
-          $nssmExe = Join-Path $nssmDir 'nssm.exe'
-          if (!(Test-Path $nssmExe)) {
-            New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          $ErrorActionPreference = 'Stop'
+
+          # Try Chocolatey first (most reliable), then fallback to direct zip download.
+          $nssmExe = $null
+          $choco = Get-Command choco -ErrorAction SilentlyContinue
+          if (-not $choco) {
+            try {
+              Set-ExecutionPolicy Bypass -Scope Process -Force
+              Invoke-WebRequest -UseBasicParsing -Uri 'https://community.chocolatey.org/install.ps1' -OutFile "$env:TEMP\install_choco.ps1"
+              & powershell -ExecutionPolicy Bypass -File "$env:TEMP\install_choco.ps1"
+              $choco = Get-Command choco -ErrorAction SilentlyContinue
+            } catch {
+              Write-Host "Chocolatey install failed: $($_.Exception.Message)"
+            }
+          }
+
+          if ($choco) {
+            try {
+              choco install nssm -y --no-progress
+              $nssmExe = 'C:\ProgramData\chocolatey\lib\nssm\tools\nssm.exe'
+            } catch {
+              Write-Host "Chocolatey NSSM install failed: $($_.Exception.Message)"
+            }
+          }
+
+          if (-not $nssmExe -or -not (Test-Path $nssmExe)) {
+            # Fallback: download official zip (with mirror) and extract
+            $nssmDir = 'C:\Tools\nssm'
             $zip = 'C:\Tools\nssm.zip'
-            Invoke-WebRequest -Uri 'https://nssm.cc/release/nssm-2.24.zip' -OutFile $zip
-            Expand-Archive -Path $zip -DestinationPath 'C:\Tools\nssm_extract' -Force
-            $srcExe = 'C:\Tools\nssm_extract\nssm-2.24\win64\nssm.exe'
-            if (!(Test-Path $srcExe)) { $srcExe = 'C:\Tools\nssm_extract\nssm-2.24\win32\nssm.exe' }
+            $extractDir = 'C:\Tools\nssm_extract'
+            New-Item -ItemType Directory -Path (Split-Path $zip) -Force | Out-Null
+            $urls = @(
+              'https://nssm.cc/release/nssm-2.24.zip',
+              'https://github.com/konstantind/nssm/releases/download/v2.24-101/nssm-2.24.zip',
+              'https://github.com/hamstergene/nssm/releases/download/v2.24/nssm-2.24.zip'
+            )
+            $downloaded = $false
+            foreach ($u in $urls) {
+              try {
+                Write-Host "Downloading NSSM from $u"
+                Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $zip
+                $downloaded = $true
+                break
+              } catch {
+                Write-Host "Failed: $($_.Exception.Message)"
+              }
+            }
+            if (-not $downloaded) { throw "Unable to download NSSM zip from all sources" }
+
+            Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+            $srcExe64 = Join-Path $extractDir 'nssm-2.24\win64\nssm.exe'
+            $srcExe32 = Join-Path $extractDir 'nssm-2.24\win32\nssm.exe'
+            $srcExe = (Test-Path $srcExe64) ? $srcExe64 : $srcExe32
+            if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
+
+            New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
+            $nssmExe = Join-Path $nssmDir 'nssm.exe'
             Copy-Item $srcExe $nssmExe -Force
           }
+
           & $nssmExe version
 
       - name: 6f. Configure Windows Service for backend via NSSM
