@@ -154,18 +154,58 @@ jobs:
           schtasks /Create /SC ONSTART /TN $taskName /TR $tr /RL HIGHEST /RU SYSTEM /F
           Write-Host 'Scheduled task created for PM2 resurrect at startup.'
 
-      - name: 6d. Install PM2 and (re)start backend daemon
+      - name: 6d. Install PM2 (optional, no runtime start)
         shell: powershell
         run: |
           npm install -g pm2
-          # Stop oude PM2 proces als het bestaat
-          try { pm2 stop tixflow-backend } catch {}
+          Write-Host "PM2 installed; runtime will be managed by Windows Service (NSSM)."
+
+      - name: 6e. Install NSSM (Non-Sucking Service Manager)
+        shell: powershell
+        run: |
+          $nssmDir = 'C:\Tools\nssm'
+          $nssmExe = Join-Path $nssmDir 'nssm.exe'
+          if (!(Test-Path $nssmExe)) {
+            New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
+            $zip = 'C:\Tools\nssm.zip'
+            Invoke-WebRequest -Uri 'https://nssm.cc/release/nssm-2.24.zip' -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath 'C:\Tools\nssm_extract' -Force
+            $srcExe = 'C:\Tools\nssm_extract\nssm-2.24\win64\nssm.exe'
+            if (!(Test-Path $srcExe)) { $srcExe = 'C:\Tools\nssm_extract\nssm-2.24\win32\nssm.exe' }
+            Copy-Item $srcExe $nssmExe -Force
+          }
+          & $nssmExe version
+
+      - name: 6f. Configure Windows Service for backend via NSSM
+        shell: powershell
+        run: |
+          $svcName = 'TixFlowBackend'
+          $backendDir = 'C:\TixFlow\ProjectRoot\my-app\backend'
+          $logDir = Join-Path $backendDir 'logs'
+          New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+          $nssmExe = 'C:\Tools\nssm\nssm.exe'
+          $nodeExe = (Get-Command node).Source
+
+          # Stop en verwijder eventuele PM2 processen en Scheduled Tasks om port-conflict te voorkomen
           try { pm2 delete tixflow-backend } catch {}
-          # Start nieuwe backend onder PM2 met juiste CWD
-          pm2 start index.js --name tixflow-backend --cwd "C:\TixFlow\ProjectRoot\my-app\backend"
-          pm2 save
-          # Als pm2 windows service bestaat, zorg dat het actief is
-          try { pm2 ping } catch { Write-Host "pm2 ping failed (service wellicht niet geïnstalleerd), maar proces draait." }
+          try { schtasks /Delete /TN PM2-Resurrect-TixFlow /F | Out-Null } catch {}
+          try { schtasks /Delete /TN TixFlowBackend-StartNow /F | Out-Null } catch {}
+
+          # Verwijder bestaande service indien aanwezig
+          try { & $nssmExe stop $svcName } catch {}
+          try { & $nssmExe remove $svcName confirm } catch {}
+
+          # Installeer service: node index.js met juiste werkdirectory
+          & $nssmExe install $svcName $nodeExe 'index.js'
+          & $nssmExe set $svcName AppDirectory $backendDir
+          & $nssmExe set $svcName Start SERVICE_AUTO_START
+          & $nssmExe set $svcName AppStdout (Join-Path $logDir 'out.log')
+          & $nssmExe set $svcName AppStderr (Join-Path $logDir 'err.log')
+
+          # Start de service
+          & $nssmExe start $svcName
+          Start-Sleep -Seconds 3
+          sc query $svcName
 
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
