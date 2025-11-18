@@ -273,22 +273,17 @@ jobs:
           & $nssmExe set $service AppStopMethodSkip 0
           & $nssmExe set $service AppThrottle 2000
           & $nssmExe set $service AppRestartDelay 5000
-          # Preflight: zorg dat dependencies op de deploy-locatie aanwezig zijn
+          # Preflight: installeer altijd dependencies in de deploy-locatie
           $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
           if (-not $npmCmd) { $npmCmd = 'C:\Program Files\nodejs\npm.cmd' }
-          $expressPkg = Join-Path $backendDir 'node_modules\express\package.json'
-          if (-not (Test-Path $expressPkg)) {
-            Write-Host ("Installing backend dependencies in {0} (production only)..." -f $backendDir)
-            Push-Location $backendDir
-            try {
-              & $npmCmd ci --omit=dev
-            } catch {
-              Write-Host ("npm ci failed, falling back to npm install --production: {0}" -f $_.Exception.Message)
-              & $npmCmd install --production
-            } finally { Pop-Location }
-          } else {
-            Write-Host "Dependencies already present; skipping npm install."
-          }
+          Write-Host ("Installing backend dependencies in {0} (production only)..." -f $backendDir)
+          Push-Location $backendDir
+          try {
+            & $npmCmd ci --omit=dev
+          } catch {
+            Write-Host ("npm ci failed, falling back to npm install --production: {0}" -f $_.Exception.Message)
+            & $npmCmd install --production
+          } finally { Pop-Location }
           # Start of herstart service en wacht totdat deze RUNNING is
           try {
             if ($existing) { & $nssmExe restart $service } else { & $nssmExe start $service }
