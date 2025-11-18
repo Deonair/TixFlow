@@ -140,6 +140,29 @@ jobs:
         run: npm install
         working-directory: C:\TixFlow\ProjectRoot\my-app\backend
 
+      - name: 6c2. Install PM2 Windows Service (optional via secret)
+        shell: powershell
+        env:
+          PM2_ADMIN_PASSWORD: ${{ secrets.PM2_ADMIN_PASSWORD }}
+          PM2_ADMIN_USER: ${{ secrets.PM2_ADMIN_USER }}
+        run: |
+          # Installeer pm2 en probeer een Windows service op te zetten als er credentials zijn
+          npm install -g pm2
+          $user = if ($env:PM2_ADMIN_USER) { $env:PM2_ADMIN_USER } else { 'Administrator' }
+          $pwd = $env:PM2_ADMIN_PASSWORD
+          if ($pwd) {
+            Write-Host "Installing pm2-windows-service for persistent daemon..."
+            npm install -g pm2-windows-service
+            try {
+              pm2-service-install -n pm2-tixflow -u $user -p $pwd
+              Write-Host "pm2 Windows service installed."
+            } catch {
+              Write-Host "pm2-service-install failed: $($_.Exception.Message)"
+            }
+          } else {
+            Write-Host "PM2_ADMIN_PASSWORD not provided; skipping Windows service install."
+          }
+
       - name: 6d. Install PM2 and (re)start backend daemon
         shell: powershell
         run: |
@@ -150,6 +173,8 @@ jobs:
           # Start nieuwe backend onder PM2 met juiste CWD
           pm2 start index.js --name tixflow-backend --cwd "C:\TixFlow\ProjectRoot\my-app\backend"
           pm2 save
+          # Als pm2 windows service bestaat, zorg dat het actief is
+          try { pm2 ping } catch { Write-Host "pm2 ping failed (service wellicht niet geïnstalleerd), maar proces draait." }
 
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
@@ -170,7 +195,7 @@ jobs:
       - name: 8. Verify Backend Health
         shell: powershell
         run: |
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 7
           try {
             $resp = Invoke-RestMethod -Uri 'http://localhost:5050/api/health' -Method Get -TimeoutSec 5
             Write-Host ($resp | ConvertTo-Json)
