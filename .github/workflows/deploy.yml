@@ -162,7 +162,7 @@ jobs:
 
       # 6e. Install NSSM (Non-Sucking Service Manager)
       - name: 6e. Install NSSM (Non-Sucking Service Manager)
-        shell: pwsh
+        shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
       
@@ -221,7 +221,7 @@ jobs:
           "NSSM_EXE=$nssmExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: 6f. Configure Windows Service for backend via NSSM
-        shell: pwsh
+        shell: powershell
         run: |
           $nssmExe = $env:NSSM_EXE
           if (-not (Test-Path $nssmExe)) { throw "NSSM_EXE not set or file missing: $nssmExe" }
