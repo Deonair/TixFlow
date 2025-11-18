@@ -160,106 +160,101 @@ jobs:
           npm install -g pm2
           Write-Host "PM2 installed; runtime will be managed by Windows Service (NSSM)."
 
+      # 6e. Install NSSM (Non-Sucking Service Manager)
       - name: 6e. Install NSSM (Non-Sucking Service Manager)
-        shell: powershell
+        shell: pwsh
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          $ErrorActionPreference = 'Stop'
-
-          # Try Chocolatey first (most reliable), then fallback to direct zip download.
+      
+          $chocoNssm = 'C:\ProgramData\chocolatey\lib\nssm\tools\nssm.exe'
+          $toolsDir = 'C:\Tools\nssm'
+          $fallbackExe = Join-Path $toolsDir 'nssm.exe'
           $nssmExe = $null
-          $choco = Get-Command choco -ErrorAction SilentlyContinue
-          if (-not $choco) {
-            try {
-              Set-ExecutionPolicy Bypass -Scope Process -Force
-              Invoke-WebRequest -UseBasicParsing -Uri 'https://community.chocolatey.org/install.ps1' -OutFile "$env:TEMP\install_choco.ps1"
-              & powershell -ExecutionPolicy Bypass -File "$env:TEMP\install_choco.ps1"
-              $choco = Get-Command choco -ErrorAction SilentlyContinue
-            } catch {
-              Write-Host "Chocolatey install failed: $($_.Exception.Message)"
+      
+          # Als NSSM al via Chocolatey aanwezig is, gebruik die
+          if (Test-Path $chocoNssm) {
+            $nssmExe = $chocoNssm
+          } else {
+            # Probeer via Chocolatey te installeren/upgraden
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install nssm -y --no-progress || choco upgrade nssm -y --no-progress
+              if (Test-Path $chocoNssm) { $nssmExe = $chocoNssm }
             }
-          }
-
-          if ($choco) {
-            try {
-              choco install nssm -y --no-progress
-              $nssmExe = 'C:\ProgramData\chocolatey\lib\nssm\tools\nssm.exe'
-            } catch {
-              Write-Host "Chocolatey NSSM install failed: $($_.Exception.Message)"
-            }
-          }
-
-          if (-not $nssmExe -or -not (Test-Path $nssmExe)) {
-            # Fallback: download official zip (with mirror) and extract
-            $nssmDir = 'C:\Tools\nssm'
-            $zip = 'C:\Tools\nssm.zip'
-            $extractDir = 'C:\Tools\nssm_extract'
-            New-Item -ItemType Directory -Path (Split-Path $zip) -Force | Out-Null
-            $urls = @(
-              'https://nssm.cc/release/nssm-2.24.zip',
-              'https://github.com/konstantind/nssm/releases/download/v2.24-101/nssm-2.24.zip',
-              'https://github.com/hamstergene/nssm/releases/download/v2.24/nssm-2.24.zip'
-            )
-            $downloaded = $false
-            foreach ($u in $urls) {
-              try {
-                Write-Host "Downloading NSSM from $u"
-                Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $zip
-                $downloaded = $true
-                break
-              } catch {
-                Write-Host "Failed: $($_.Exception.Message)"
+      
+            # Fallback: directe download + extract
+            if (-not $nssmExe) {
+              New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+              $zip = Join-Path $toolsDir 'nssm-2.24.zip'
+              $extractDir = Join-Path $toolsDir 'extracted'
+              $urls = @(
+                'https://nssm.cc/release/nssm-2.24.zip',
+                'https://github.com/servicemanagers/nssm/releases/download/2.24/nssm-2.24.zip'
+              )
+              $downloaded = $false
+              foreach ($u in $urls) {
+                try {
+                  Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing -TimeoutSec 60
+                  $downloaded = $true
+                  break
+                } catch {
+                  Write-Host "Download failed from $u: $($_.Exception.Message)"
+                }
               }
+              if (-not $downloaded) { throw "Failed to download NSSM zip from all sources" }
+      
+              Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+              $srcExe64 = Join-Path $extractDir 'nssm-2.24\win64\nssm.exe'
+              $srcExe32 = Join-Path $extractDir 'nssm-2.24\win32\nssm.exe'
+              if (Test-Path $srcExe64) { $srcExe = $srcExe64 } else { $srcExe = $srcExe32 }
+              if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
+      
+              Copy-Item -Path $srcExe -Destination $fallbackExe -Force
+              $nssmExe = $fallbackExe
             }
-            if (-not $downloaded) { throw "Unable to download NSSM zip from all sources" }
-
-            Expand-Archive -Path $zip -DestinationPath $extractDir -Force
-            $srcExe64 = Join-Path $extractDir 'nssm-2.24\win64\nssm.exe'
-            $srcExe32 = Join-Path $extractDir 'nssm-2.24\win32\nssm.exe'
-            if (Test-Path $srcExe64) {
-              $srcExe = $srcExe64
-            } else {
-              $srcExe = $srcExe32
-            }
-            if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
-
-            New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
-            $nssmExe = Join-Path $nssmDir 'nssm.exe'
-            Copy-Item $srcExe $nssmExe -Force
           }
-
-          & $nssmExe version
+      
+          if (-not (Test-Path $nssmExe)) { throw "NSSM executable not found: $nssmExe" }
+      
+          Write-Host "NSSM located at: $nssmExe"
+          # Belangrijk: expliciet CLI aanroepen, geen GUI
+          & $nssmExe version | Write-Output
+          "NSSM_EXE=$nssmExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: 6f. Configure Windows Service for backend via NSSM
-        shell: powershell
+        shell: pwsh
         run: |
-          $svcName = 'TixFlowBackend'
-          $backendDir = 'C:\TixFlow\ProjectRoot\my-app\backend'
-          $logDir = Join-Path $backendDir 'logs'
-          New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-          $nssmExe = 'C:\Tools\nssm\nssm.exe'
-          $nodeExe = (Get-Command node).Source
-
-          # Stop en verwijder eventuele PM2 processen en Scheduled Tasks om port-conflict te voorkomen
-          try { pm2 delete tixflow-backend } catch {}
-          try { schtasks /Delete /TN PM2-Resurrect-TixFlow /F | Out-Null } catch {}
-          try { schtasks /Delete /TN TixFlowBackend-StartNow /F | Out-Null } catch {}
-
-          # Verwijder bestaande service indien aanwezig
-          try { & $nssmExe stop $svcName } catch {}
-          try { & $nssmExe remove $svcName confirm } catch {}
-
-          # Installeer service: node index.js met juiste werkdirectory
-          & $nssmExe install $svcName $nodeExe 'index.js'
-          & $nssmExe set $svcName AppDirectory $backendDir
-          & $nssmExe set $svcName Start SERVICE_AUTO_START
-          & $nssmExe set $svcName AppStdout (Join-Path $logDir 'out.log')
-          & $nssmExe set $svcName AppStderr (Join-Path $logDir 'err.log')
-
-          # Start de service
-          & $nssmExe start $svcName
-          Start-Sleep -Seconds 3
-          sc query $svcName
+          $nssmExe = $env:NSSM_EXE
+          if (-not (Test-Path $nssmExe)) { throw "NSSM_EXE not set or file missing: $nssmExe" }
+      
+          $service = 'TixFlowBackend'
+          $projectRoot = 'C:\TixFlow\ProjectRoot'
+          $backendDir = Join-Path $projectRoot 'my-app\backend'
+          $nodeExe = 'C:\Program Files\nodejs\node.exe'
+          $script = Join-Path $backendDir 'index.js'
+          $logDir = 'C:\TixFlow\Logs'
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+      
+          # Stop & verwijder bestaande service indien aanwezig
+          sc query $service | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            & $nssmExe stop $service | Write-Output
+            & $nssmExe remove $service confirm | Write-Output
+          }
+      
+          # Installeren via CLI (geen GUI)
+          & $nssmExe install $service "$nodeExe" "$script" | Write-Output
+      
+          # Configuratie en logging
+          & $nssmExe set $service AppDirectory "$backendDir" | Write-Output
+          & $nssmExe set $service Start SERVICE_AUTO_START | Write-Output
+          & $nssmExe set $service AppStdout "$logDir\backend.out.log" | Write-Output
+          & $nssmExe set $service AppStderr "$logDir\backend.err.log" | Write-Output
+          & $nssmExe set $service AppStopMethodSkip 0 | Write-Output
+          & $nssmExe set $service AppThrottle 2000 | Write-Output
+          & $nssmExe set $service AppRestartDelay 5000 | Write-Output
+          & $nssmExe start $service | Write-Output
+      
+          sc query $service
 
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
