@@ -170,3 +170,14 @@ jobs:
           } catch {
             Write-Host "Backend health check failed."
           }
+
+      - name: 8b. Verify IIS Proxy Health (detect 502)
+        shell: powershell
+        run: |
+          try {
+            $resp = Invoke-WebRequest -Uri 'http://localhost/api/health' -Method Get -TimeoutSec 5 -UseBasicParsing
+            Write-Host "IIS proxy status: $($resp.StatusCode)"
+            try { $json = $resp.Content | ConvertFrom-Json; Write-Host ($json | ConvertTo-Json) } catch { Write-Host "Non-JSON response from proxy" }
+          } catch {
+            Write-Host "IIS proxy health failed: $($_.Exception.Message)"
+          }
