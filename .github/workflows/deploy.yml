@@ -219,8 +219,8 @@ jobs:
           do {
             $attempt += 1
             try {
-              $status = pm2 jlist --silent | node -e "const fs=require('fs');const d=fs.readFileSync(0,'utf8');let a=[];try{a=JSON.parse(d);}catch(e){process.stderr.write('JSON parse error:'+e.message);process.exit(2);}const p=a.find(x=>x&&x.name==='tixflow-backend');console.log(p&&p.pm2_env&&p.pm2_env.status||'');"
-              $status = $status.Trim()
+              $status = pm2 jlist --silent | node -e "const fs=require('fs');let d=fs.readFileSync(0,'utf8');d=d.replace(/^\uFEFF/, '');let a=[];try{a=JSON.parse(d);}catch(e){console.log('');process.exit(0);}const p=Array.isArray(a)?a.find(x=>x&&x.name==='tixflow-backend'):null;console.log(p&&p.pm2_env&&p.pm2_env.status?p.pm2_env.status:'');"
+              if ($status) { $status = $status.Trim() } else { $status = '' }
               Write-Host ("PM2 status attempt {0}: {1}" -f $attempt, $status)
               if ($status -eq 'online') { $online = $true }
             } catch {
@@ -251,7 +251,7 @@ jobs:
           # Skip handmatige start: PM2 beheert nu de backend
           $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
           if ($pm2) {
-            $st = pm2 jlist --silent | node -e "const fs=require('fs');const d=fs.readFileSync(0,'utf8');let a=[];try{a=JSON.parse(d);}catch(e){console.log('');process.exit(0);}const p=a.find(x=>x&&x.name==='tixflow-backend');console.log(p&&p.pm2_env&&p.pm2_env.status||'');"
+            $st = pm2 jlist --silent | node -e "const fs=require('fs');let d=fs.readFileSync(0,'utf8');d=d.replace(/^\uFEFF/, '');let a=[];try{a=JSON.parse(d);}catch(e){console.log('');process.exit(0);}const p=Array.isArray(a)?a.find(x=>x&&x.name==='tixflow-backend'):null;console.log(p&&p.pm2_env&&p.pm2_env.status?p.pm2_env.status:'');"
             if ($st.Trim() -eq 'online') {
               Write-Host 'Backend is running via PM2; skipping manual start.'
               return
