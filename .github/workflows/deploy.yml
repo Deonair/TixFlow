@@ -158,82 +158,8 @@ jobs:
         shell: powershell
         run: |
           npm install -g pm2
-          Write-Host "PM2 installed; runtime will be managed by Windows Service (NSSM)."
-
-      # 6e. Install NSSM (Non-Sucking Service Manager)
-      - name: 6e. Install NSSM (Non-Sucking Service Manager)
-        shell: powershell
-        run: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-      
-          $chocoNssm = 'C:\ProgramData\chocolatey\lib\nssm\tools\nssm.exe'
-          $toolsDir = 'C:\Tools\nssm'
-          $fallbackExe = Join-Path $toolsDir 'nssm.exe'
-          $nssmExe = $null
-      
-          # Als NSSM al via Chocolatey aanwezig is, gebruik die
-          if (Test-Path $chocoNssm) {
-            $nssmExe = $chocoNssm
-          } else {
-            # Probeer via Chocolatey te installeren/upgraden (zonder '||', met try/catch)
-            if (Get-Command choco -ErrorAction SilentlyContinue) {
-              try {
-                choco install nssm -y --no-progress
-              } catch {
-                Write-Host ("Chocolatey install failed: {0}" -f $_.Exception.Message)
-              }
-              if (-not (Test-Path $chocoNssm)) {
-                try {
-                  choco upgrade nssm -y --no-progress
-                } catch {
-                  Write-Host ("Chocolatey upgrade failed: {0}" -f $_.Exception.Message)
-                }
-              }
-              if (Test-Path $chocoNssm) { $nssmExe = $chocoNssm }
-            }
-      
-            # Fallback: directe download + extract
-            if (-not $nssmExe) {
-              New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
-              $zip = Join-Path $toolsDir 'nssm-2.24.zip'
-              $extractDir = Join-Path $toolsDir 'extracted'
-              $urls = @(
-                'https://nssm.cc/release/nssm-2.24.zip',
-                'https://github.com/servicemanagers/nssm/releases/download/2.24/nssm-2.24.zip'
-              )
-              $downloaded = $false
-              foreach ($u in $urls) {
-                try {
-                  Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing -TimeoutSec 60
-                  $downloaded = $true
-                  break
-                } catch {
-                  Write-Host ("Download failed from {0}: {1}" -f $u, $_.Exception.Message)
-                }
-              }
-              if (-not $downloaded) { throw "Failed to download NSSM zip from all sources" }
-      
-              Expand-Archive -Path $zip -DestinationPath $extractDir -Force
-              $srcExe64 = Join-Path $extractDir 'nssm-2.24\win64\nssm.exe'
-              $srcExe32 = Join-Path $extractDir 'nssm-2.24\win32\nssm.exe'
-              if (Test-Path $srcExe64) { $srcExe = $srcExe64 } else { $srcExe = $srcExe32 }
-              if (-not (Test-Path $srcExe)) { throw "NSSM executable not found in extracted archive" }
-      
-              try {
-                Copy-Item -Path $srcExe -Destination $fallbackExe -Force -ErrorAction Stop
-                Write-Host ("Copied NSSM to fallback: {0}" -f $fallbackExe)
-              } catch {
-                Write-Host ("Skip copy to fallback; file locked or in use: {0}" -f $_.Exception.Message)
-              }
-              if (Test-Path $fallbackExe) { $nssmExe = $fallbackExe } else { $nssmExe = $srcExe }
-            }
-          }
-      
-          if (-not (Test-Path $nssmExe)) { throw "NSSM executable not found: $nssmExe" }
-
-          Write-Host "NSSM located at: $nssmExe"
-          # Export NSSM_EXE voor volgende stappen
-          Add-Content -Path $env:GITHUB_ENV -Value ("NSSM_EXE={0}" -f $nssmExe)
+          Write-Host "PM2 installed; PM2 will manage the runtime."
+      # 6e. (verwijderd) — NSSM wordt niet langer gebruikt; PM2 beheert runtime
 
       - name: 6f. Start backend via PM2 (replace NSSM)
         shell: powershell
@@ -290,13 +216,12 @@ jobs:
           do {
             $attempt += 1
             try {
-              $j = pm2 jlist --silent | ConvertFrom-Json
-              $proc = $j | Where-Object { $_.name -eq 'tixflow-backend' }
-              $status = $proc.pm2_env.status
+              $status = pm2 jlist --silent | node -e "const fs=require('fs');const d=fs.readFileSync(0,'utf8');let a=[];try{a=JSON.parse(d);}catch(e){process.stderr.write('JSON parse error:'+e.message);process.exit(2);}const p=a.find(x=>x&&x.name==='tixflow-backend');console.log(p&&p.pm2_env&&p.pm2_env.status||'');"
+              $status = $status.Trim()
               Write-Host ("PM2 status attempt {0}: {1}" -f $attempt, $status)
               if ($status -eq 'online') { $online = $true }
             } catch {
-              Write-Host ("PM2 jlist parse failed: {0}" -f $_.Exception.Message)
+              Write-Host ("PM2 jlist (node parse) failed: {0}" -f $_.Exception.Message)
             }
             if (-not $healthy) {
               try {
@@ -323,8 +248,8 @@ jobs:
           # Skip handmatige start: PM2 beheert nu de backend
           $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
           if ($pm2) {
-            $desc = (pm2 describe tixflow-backend --no-color) | Out-String
-            if ($desc -match "status\s*:\s*online") {
+            $st = pm2 jlist --silent | node -e "const fs=require('fs');const d=fs.readFileSync(0,'utf8');let a=[];try{a=JSON.parse(d);}catch(e){console.log('');process.exit(0);}const p=a.find(x=>x&&x.name==='tixflow-backend');console.log(p&&p.pm2_env&&p.pm2_env.status||'');"
+            if ($st.Trim() -eq 'online') {
               Write-Host 'Backend is running via PM2; skipping manual start.'
               return
             }
