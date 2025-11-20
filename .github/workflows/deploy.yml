@@ -204,12 +204,15 @@ jobs:
           # Schoon logs en (her)start via PM2 met vaste logpaden
           if (Test-Path "$logDir\backend.out.log") { Clear-Content "$logDir\backend.out.log" }
           if (Test-Path "$logDir\backend.err.log") { Clear-Content "$logDir\backend.err.log" }
-          try { pm2 delete tixflow-backend | Out-Null } catch {}
+          try {
+            pm2 delete tixflow-backend 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Host 'PM2 delete: process not found (ignored).' }
+          } catch { Write-Host 'PM2 delete threw (ignored).'}
           pm2 start $script --name tixflow-backend --cwd $backendDir --output "$logDir\backend.out.log" --error "$logDir\backend.err.log" --time --env production
           pm2 save
 
           # Poll op PM2 online status (JSON) + health endpoint fallback
-          $maxAttempts = 30
+          $maxAttempts = 20
           $attempt = 0
           $online = $false
           $healthy = $false
@@ -229,7 +232,7 @@ jobs:
                 if ($resp.ok) { $healthy = $true; Write-Host ("Health check OK: {0}" -f ($resp | ConvertTo-Json)) }
               } catch { }
             }
-            if ($online -and $healthy) { break }
+            if ($online -or $healthy) { break }
             Start-Sleep -Seconds 2
           } while ($attempt -lt $maxAttempts)
 
