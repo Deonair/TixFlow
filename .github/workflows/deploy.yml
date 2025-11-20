@@ -258,9 +258,11 @@ jobs:
       
           # Bestaande service detecteren en veilig updaten
           $existing = Get-Service -Name $service -ErrorAction SilentlyContinue
+          $wasRunning = $false
           if ($existing) {
             Write-Host ("Service exists with status: {0}" -f $existing.Status)
             if ($existing.Status -eq 'Running') {
+              $wasRunning = $true
               & $nssmExe stop $service | Write-Output
             }
           } else {
@@ -309,29 +311,31 @@ jobs:
           # Reset logs voor duidelijke nieuwe start
           if (Test-Path "$logDir\backend.out.log") { Clear-Content "$logDir\backend.out.log" }
           if (Test-Path "$logDir\backend.err.log") { Clear-Content "$logDir\backend.err.log" }
-          # Start of herstart service en wacht totdat deze RUNNING is
+          # Start of herstart service (op basis van status) en wacht totdat deze RUNNING is
           try {
-            if ($existing) { & $nssmExe restart $service } else { & $nssmExe start $service }
+            if ($wasRunning) { & $nssmExe restart $service } else { & $nssmExe start $service }
           } catch {
             Write-Host ("nssm start/restart threw: {0}" -f $_.Exception.Message)
           }
 
           $maxAttempts = 30
           $attempt = 0
-          $statusStr = ""
+          $nssmStatus = ""
+          $svcStatus = "Unknown"
           do {
             $attempt += 1
-            $statusLines = (& $nssmExe status $service) 2>&1
-            $statusStr = ($statusLines | Out-String).Trim()
-            Write-Host ("NSSM status attempt {0}: {1}" -f $attempt, $statusStr)
-            if ($statusStr -match "SERVICE_RUNNING") { break }
+            $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
+            $svcStatus = ($svc?.Status) -as [string]
+            $nssmStatus = ((& $nssmExe status $service) 2>&1 | Out-String).Trim()
+            Write-Host ("Status attempt {0}: SCM={1} NSSM={2}" -f $attempt, $svcStatus, $nssmStatus)
+            if ($svc -and $svc.Status -eq 'Running') { break }
             Start-Sleep -Seconds 2
-          } while ($attempt -lt $maxAttempts -and $statusStr -match "SERVICE_START_PENDING")
+          } while ($attempt -lt $maxAttempts)
 
-          if ($statusStr -match "SERVICE_RUNNING") {
-            Write-Host "Service reached RUNNING state."
+          if ($svcStatus -eq 'Running') {
+            Write-Host "Service reached RUNNING state (SCM)."
           } else {
-            Write-Host ("Service failed to reach RUNNING. Final status: {0}" -f $statusStr)
+            Write-Host ("Service failed to reach RUNNING. Final SCM={0} NSSM={1}" -f $svcStatus, $nssmStatus)
             if (Test-Path "$logDir\backend.err.log") { Write-Host "--- backend.err.log (tail) ---"; Get-Content -Path "$logDir\backend.err.log" -Tail 50 | Write-Host }
             if (Test-Path "$logDir\backend.out.log") { Write-Host "--- backend.out.log (tail) ---"; Get-Content -Path "$logDir\backend.out.log" -Tail 50 | Write-Host }
             Write-Host "SC QUERY output:"
