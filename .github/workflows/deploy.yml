@@ -284,7 +284,10 @@ jobs:
       - name: 8c. Diagnostic POST tests (direct and via proxy)
         shell: powershell
         run: |
-          $body = @{ name = 'Diag User'; email = "diag+$(Get-Random)@tixflow.local"; organization = 'Diag Org'; password = 'Passw0rd!' } | ConvertTo-Json
+          $projectRoot = 'C:\TixFlow\ProjectRoot'
+          $backendDir = Join-Path $projectRoot 'my-app\backend'
+          $emailDiag = "diag+$(Get-Random)@tixflow.local"
+          $body = @{ name = 'Diag User'; email = $emailDiag; organization = 'Diag Org'; password = 'Passw0rd!' } | ConvertTo-Json
           Write-Host 'Testing direct backend POST /api/users/register'
           try {
             $resp = Invoke-WebRequest -Uri 'http://localhost:5050/api/users/register' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8 -UseBasicParsing
@@ -302,6 +305,33 @@ jobs:
           } catch {
             Write-Host "IIS proxy register failed: $($_.Exception.Message)"
           }
+
+          # Cleanup: verwijder de diagnostische user direct uit de database
+          Write-Host ("Cleanup: delete diagnostic user(s) with email: {0}" -f $emailDiag)
+          Push-Location $backendDir
+          $env:DIAG_EMAIL = $emailDiag
+          $js = @"
+          const path = require('path');
+          require('dotenv').config({ path: path.join(process.cwd(), '.env') });
+          const mongoose = require('mongoose');
+          const email = process.env.DIAG_EMAIL;
+          const uri = process.env.MONGO_URI;
+          const OrganizerSchema = new mongoose.Schema({ email: String }, { collection: 'organizers' });
+          const Organizer = mongoose.model('Organizer', OrganizerSchema);
+          (async () => {
+            try {
+              await mongoose.connect(uri);
+              const res = await Organizer.deleteMany({ email });
+              console.log('Cleanup: deleted', res.deletedCount, 'diag user(s) with email', email);
+            } catch (e) {
+              console.log('Cleanup failed:', e.message);
+            } finally {
+              await mongoose.disconnect();
+            }
+          })();
+          "@
+          node -e $js
+          Pop-Location
 
       - name: 8d. Port and process diagnostics
         shell: powershell
