@@ -235,50 +235,21 @@ jobs:
           # Export NSSM_EXE voor volgende stappen
           Add-Content -Path $env:GITHUB_ENV -Value ("NSSM_EXE={0}" -f $nssmExe)
 
-      - name: 6f. Configure Windows Service for backend via NSSM
+      - name: 6f. Start backend via PM2 (replace NSSM)
         shell: powershell
         run: |
-          $nssmExe = $env:NSSM_EXE
-          if (-not $nssmExe -or -not (Test-Path $nssmExe)) {
-            $candidates = @('C:\ProgramData\chocolatey\lib\nssm\tools\nssm.exe','C:\Tools\nssm\nssm.exe')
-            foreach ($cand in $candidates) { if (Test-Path $cand) { $nssmExe = $cand; break } }
-          }
-          if (-not (Test-Path $nssmExe)) { throw "NSSM executable not found: $nssmExe" }
-      
-          $service = 'TixFlowBackend'
           $projectRoot = 'C:\TixFlow\ProjectRoot'
           $backendDir = Join-Path $projectRoot 'my-app\backend'
-          $nodeExe = 'C:\Program Files\nodejs\node.exe'
           $script = Join-Path $backendDir 'index.js'
           $logDir = 'C:\TixFlow\Logs'
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
           if (-not (Test-Path $script)) { throw "Backend entry script not found: $script" }
-          try { $nodeVer = (& $nodeExe -v) } catch { $nodeVer = 'unknown' }
-          Write-Host ("Node version for service exe: {0}" -f $nodeVer)
-      
-          # Bestaande service detecteren en veilig updaten
-          $existing = Get-Service -Name $service -ErrorAction SilentlyContinue
-          $wasRunning = $false
-          if ($existing) {
-            Write-Host ("Service exists with status: {0}" -f $existing.Status)
-            if ($existing.Status -eq 'Running') {
-              $wasRunning = $true
-              & $nssmExe stop $service | Write-Output
-            }
-          } else {
-            # Installeren via CLI (geen GUI)
-            & $nssmExe install $service "$nodeExe" "$script"
-          }
-      
-          # Configuratie en logging
-          & $nssmExe set $service AppDirectory "$backendDir"
-          & $nssmExe set $service Start SERVICE_AUTO_START
-          & $nssmExe set $service AppStdout "$logDir\backend.out.log"
-          & $nssmExe set $service AppStderr "$logDir\backend.err.log"
-          & $nssmExe set $service AppStopMethodSkip 0
-          & $nssmExe set $service AppThrottle 2000
-          & $nssmExe set $service AppRestartDelay 5000
-          # Preflight: installeer altijd dependencies in de deploy-locatie met strikte exit-code checks
+
+          # Zorg dat PM2 beschikbaar is
+          $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
+          if (-not $pm2) { npm install -g pm2 }
+
+          # Dependencies installeren met strikte checks
           $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
           if (-not $npmCmd) { $npmCmd = 'C:\Program Files\nodejs\npm.cmd' }
           Write-Host ("Installing backend dependencies in {0} (production only)..." -f $backendDir)
@@ -287,86 +258,65 @@ jobs:
           try {
             & $npmCmd ci --omit=dev
             if ($LASTEXITCODE -eq 0) { $installOk = $true } else { Write-Host ("npm ci exit code: {0}" -f $LASTEXITCODE) }
-          } catch {
-            Write-Host ("npm ci threw: {0}" -f $_.Exception.Message)
-          }
+          } catch { Write-Host ("npm ci threw: {0}" -f $_.Exception.Message) }
           if (-not $installOk) {
             Write-Host "Falling back to npm install --production..."
             try {
               & $npmCmd install --production
               if ($LASTEXITCODE -eq 0) { $installOk = $true } else { Write-Host ("npm install exit code: {0}" -f $LASTEXITCODE) }
-            } catch {
-              Write-Host ("npm install threw: {0}" -f $_.Exception.Message)
-            }
+            } catch { Write-Host ("npm install threw: {0}" -f $_.Exception.Message) }
           }
           Pop-Location
           if (-not $installOk) { throw "Dependency installation failed (npm)." }
-          # Verifieer kritieke packages aanwezig
+          # Verifieer kritieke packages
           $expressPkg = Join-Path $backendDir 'node_modules\express\package.json'
           $mongoosePkg = Join-Path $backendDir 'node_modules\mongoose\package.json'
-          $hasExpress = Test-Path $expressPkg
-          $hasMongoose = Test-Path $mongoosePkg
+          $hasExpress = Test-Path $expressPkg; $hasMongoose = Test-Path $mongoosePkg
           Write-Host ("Dependency check: express={0} mongoose={1}" -f $hasExpress, $hasMongoose)
           if (-not $hasExpress -or -not $hasMongoose) { throw ("Dependencies missing after install. express={0} mongoose={1}" -f $hasExpress, $hasMongoose) }
-          # Reset logs voor duidelijke nieuwe start
+
+          # Schoon logs en (her)start via PM2 met vaste logpaden
           if (Test-Path "$logDir\backend.out.log") { Clear-Content "$logDir\backend.out.log" }
           if (Test-Path "$logDir\backend.err.log") { Clear-Content "$logDir\backend.err.log" }
-          # Start of herstart service (op basis van status) en wacht totdat deze RUNNING is
-          try {
-            if ($wasRunning) { & $nssmExe restart $service } else { & $nssmExe start $service }
-          } catch {
-            Write-Host ("nssm start/restart threw: {0}" -f $_.Exception.Message)
-          }
+          try { pm2 delete tixflow-backend | Out-Null } catch {}
+          pm2 start $script --name tixflow-backend --cwd $backendDir --output "$logDir\backend.out.log" --error "$logDir\backend.err.log" --time --env production
+          pm2 save
 
+          # Poll op online status
           $maxAttempts = 30
           $attempt = 0
-          $nssmStatus = ""
-          $svcStatus = "Unknown"
+          $status = ""
           do {
             $attempt += 1
-            $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
-            $svcStatus = ($svc?.Status) -as [string]
-            $nssmStatus = ((& $nssmExe status $service) 2>&1 | Out-String).Trim()
-            Write-Host ("Status attempt {0}: SCM={1} NSSM={2}" -f $attempt, $svcStatus, $nssmStatus)
-            if ($svc -and $svc.Status -eq 'Running') { break }
+            $desc = (pm2 describe tixflow-backend --no-color) | Out-String
+            $status = ($desc | Select-String -Pattern "status" -SimpleMatch | Out-String)
+            Write-Host ("PM2 status attempt {0}: {1}" -f $attempt, $status.Trim())
+            if ($desc -match "status\s*:\s*online") { break }
             Start-Sleep -Seconds 2
           } while ($attempt -lt $maxAttempts)
 
-          if ($svcStatus -eq 'Running') {
-            Write-Host "Service reached RUNNING state (SCM)."
+          if ($desc -match "status\s*:\s*online") {
+            Write-Host "PM2 process online."
           } else {
-            Write-Host ("Service failed to reach RUNNING. Final SCM={0} NSSM={1}" -f $svcStatus, $nssmStatus)
+            Write-Host "PM2 failed to reach online status."
             if (Test-Path "$logDir\backend.err.log") { Write-Host "--- backend.err.log (tail) ---"; Get-Content -Path "$logDir\backend.err.log" -Tail 50 | Write-Host }
             if (Test-Path "$logDir\backend.out.log") { Write-Host "--- backend.out.log (tail) ---"; Get-Content -Path "$logDir\backend.out.log" -Tail 50 | Write-Host }
-            Write-Host "SC QUERY output:"
-            sc query $service
-            throw "Service did not reach RUNNING state."
+            throw "Backend did not reach online status via PM2"
           }
-      
-          sc query $service
 
       - name: 7. Start Backend Server (Finale Start)
         shell: powershell
         run: |
-          # Skip deze stap als NSSM-service al draait
-          $svc = Get-Service -Name 'TixFlowBackend' -ErrorAction SilentlyContinue
-          if ($svc -and $svc.Status -eq 'Running') {
-            Write-Host 'Backend is running via NSSM; skipping manual start.'
-            return
-          }
-
-          # Als PM2 beschikbaar is, beheren we de backend via PM2 en slaan deze stap over
+          # Skip handmatige start: PM2 beheert nu de backend
           $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
-          if (-not $pm2) {
-            $node = $env:NODE_PATH
-            if (-not $node) { $node = (Get-Command node).Source }
-            $proc = Start-Process -FilePath $node -ArgumentList "index.js" -WorkingDirectory "C:\TixFlow\ProjectRoot\my-app\backend" -NoNewWindow -PassThru
-            # Bewaar PID voor gecontroleerde stop bij volgende deploy
-            Set-Content -Path "C:\TixFlow\ProjectRoot\backend.pid" -Value $proc.Id
-            Write-Host "Backend started without PM2. PID: $($proc.Id)"
-          } else {
-            Write-Host "Backend managed by PM2 (tixflow-backend)."
+          if ($pm2) {
+            $desc = (pm2 describe tixflow-backend --no-color) | Out-String
+            if ($desc -match "status\s*:\s*online") {
+              Write-Host 'Backend is running via PM2; skipping manual start.'
+              return
+            }
           }
+          Write-Host 'PM2 niet gevonden of proces niet online; geen handmatige start hier.'
 
       - name: 8. Verify Backend Health
         shell: powershell
