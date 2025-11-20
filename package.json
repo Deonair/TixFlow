@@ -1,6 +1,11 @@
 {
   "dependencies": {
     "rippleui": "^1.12.1"
+  },
+  "devDependencies": {
+    "cypress": "^15.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite": "^7.2.2"
   }
-  
 }
