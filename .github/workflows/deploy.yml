@@ -282,26 +282,39 @@ jobs:
           pm2 start $script --name tixflow-backend --cwd $backendDir --output "$logDir\backend.out.log" --error "$logDir\backend.err.log" --time --env production
           pm2 save
 
-          # Poll op online status
+          # Poll op PM2 online status (JSON) + health endpoint fallback
           $maxAttempts = 30
           $attempt = 0
-          $status = ""
+          $online = $false
+          $healthy = $false
           do {
             $attempt += 1
-            $desc = (pm2 describe tixflow-backend --no-color) | Out-String
-            $status = ($desc | Select-String -Pattern "status" -SimpleMatch | Out-String)
-            Write-Host ("PM2 status attempt {0}: {1}" -f $attempt, $status.Trim())
-            if ($desc -match "status\s*:\s*online") { break }
+            try {
+              $j = pm2 jlist --silent | ConvertFrom-Json
+              $proc = $j | Where-Object { $_.name -eq 'tixflow-backend' }
+              $status = $proc.pm2_env.status
+              Write-Host ("PM2 status attempt {0}: {1}" -f $attempt, $status)
+              if ($status -eq 'online') { $online = $true }
+            } catch {
+              Write-Host ("PM2 jlist parse failed: {0}" -f $_.Exception.Message)
+            }
+            if (-not $healthy) {
+              try {
+                $resp = Invoke-RestMethod -Uri 'http://localhost:5050/api/health' -Method Get -TimeoutSec 3
+                if ($resp.ok) { $healthy = $true; Write-Host ("Health check OK: {0}" -f ($resp | ConvertTo-Json)) }
+              } catch { }
+            }
+            if ($online -and $healthy) { break }
             Start-Sleep -Seconds 2
           } while ($attempt -lt $maxAttempts)
 
-          if ($desc -match "status\s*:\s*online") {
-            Write-Host "PM2 process online."
+          if ($online -or $healthy) {
+            Write-Host ("Backend ready. PM2 online={0} health={1}" -f $online, $healthy)
           } else {
-            Write-Host "PM2 failed to reach online status."
+            Write-Host "PM2 failed to reach online status and health endpoint did not respond."
             if (Test-Path "$logDir\backend.err.log") { Write-Host "--- backend.err.log (tail) ---"; Get-Content -Path "$logDir\backend.err.log" -Tail 50 | Write-Host }
             if (Test-Path "$logDir\backend.out.log") { Write-Host "--- backend.out.log (tail) ---"; Get-Content -Path "$logDir\backend.out.log" -Tail 50 | Write-Host }
-            throw "Backend did not reach online status via PM2"
+            throw "Backend did not reach ready state via PM2/health"
           }
 
       - name: 7. Start Backend Server (Finale Start)
