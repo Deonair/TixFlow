@@ -38,27 +38,63 @@ const AdminDashboard = () => {
   }, [])
 
   const stats = useMemo(() => {
+    const now = new Date()
+    const isSameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+
     const total = events.length
-    const upcoming = events.filter(e => {
-      const dt = new Date(e.date)
-      return !isNaN(dt.getTime()) && dt.getTime() >= Date.now()
-    }).length
     const live = events.filter(e => {
       const dt = new Date(e.date)
-      return e.status === 'published' && !isNaN(dt.getTime()) && dt.getTime() >= Date.now()
+      return !isNaN(dt.getTime()) && isSameDay(dt, now)
+    }).length
+    const upcoming = events.filter(e => {
+      const dt = new Date(e.date)
+      return !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
     }).length
     return { total, upcoming, live }
   }, [events])
 
   // Bepaal het eerstvolgende opkomende event (datum in de toekomst, dichtstbij)
   const nextEvent = useMemo(() => {
-    const now = Date.now()
+    const now = new Date()
+    const isSameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
     return events
       .filter(e => {
         const dt = new Date(e.date)
-        return !isNaN(dt.getTime()) && dt.getTime() >= now
+        return !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+  }, [events])
+
+  // Bepaal het (meest relevante) live event van vandaag
+  const liveEvent = useMemo(() => {
+    const now = new Date()
+    const isSameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+
+    const todayEvents = events.filter(e => {
+      const dt = new Date(e.date)
+      return !isNaN(dt.getTime()) && isSameDay(dt, now)
+    })
+
+    if (todayEvents.length === 0) return undefined
+
+    const upcomingToday = todayEvents
+      .filter(e => new Date(e.date).getTime() >= now.getTime())
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+    if (upcomingToday.length > 0) return upcomingToday[0]
+
+    // Als alles al begonnen is vandaag, toon het meest recente (laatste) event van vandaag
+    return todayEvents
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
   }, [events])
 
   return (
@@ -94,6 +130,57 @@ const AdminDashboard = () => {
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="text-sm text-gray-500">Live</div>
           <div className="mt-1 text-3xl font-semibold text-gray-900">{stats.live}</div>
+        </div>
+      </div>
+
+      {/* Live event */}
+      <div className="rounded-2xl bg-white shadow-sm border border-gray-200 overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Live event</h2>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {loading && (
+            <div className="p-5 text-gray-600">Laden...</div>
+          )}
+          {!loading && error && (
+            <div className="p-5 text-red-600">{error}</div>
+          )}
+          {!loading && !error && !liveEvent && (
+            <div className="p-5 text-gray-600">Geen live event</div>
+          )}
+          {!loading && !error && liveEvent && (
+            <div key={liveEvent._id} className="p-5 flex items-center justify-between">
+              <div>
+                <div className="font-medium text-gray-900">{liveEvent.title}</div>
+                <div className="text-sm text-gray-600">
+                  {new Date(liveEvent.date).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })}
+                  {liveEvent.location ? ` · ${liveEvent.location}` : ''}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  to={`/admin/event/${liveEvent._id}`}
+                  className="text-sm inline-flex items-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-900 hover:bg-gray-100"
+                >
+                  Details
+                </Link>
+                <Link
+                  to={`/admin/event/${liveEvent._id}/edit`}
+                  className="text-sm inline-flex items-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-900 hover:bg-gray-100"
+                >
+                  Bewerken
+                </Link>
+                {liveEvent.slug && (
+                  <Link
+                    to={`/event/${liveEvent.slug}`}
+                    className="text-sm inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
+                  >
+                    Publieke pagina
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
