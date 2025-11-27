@@ -6,6 +6,7 @@ import EventForm from './components/EventForm'
 import EventList from './components/EventList'
 import EventDetail from './components/EventDetail'
 import EventLanding from './components/EventLanding'
+import EventCheckout from './components/EventCheckout.tsx'
 import EventEdit from './components/EventEdit'
 import Register from './components/Register'
 import Home from './components/Home'
@@ -40,6 +41,7 @@ function App() {
           <Route path="/admin/event/:id" element={<RequireAuth><EventDetail /></RequireAuth>} />
           <Route path="/admin/event/:id/edit" element={<RequireAuth><EventEdit /></RequireAuth>} />
           <Route path="/event/:slug" element={<EventLanding />} />
+          <Route path="/event/:slug/checkout" element={<EventCheckout />} />
           <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
           <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
           {/* Organizer route verwijderd; landing na login is /admin/events */}

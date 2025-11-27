@@ -145,11 +145,19 @@ export const getEventBySlug = async (req, res) => {
       return res.status(400).json({ message: 'Missing slug' });
     }
 
-    const event = await Event.findOne({ slug, status: 'active' });
-    if (!event) {
+    // Haal publiek event op en populate alleen de organisatienaam
+    const doc = await Event.findOne({ slug, status: 'active' })
+      .populate('owner', 'name')
+      .lean();
+    if (!doc) {
       return res.status(404).json({ message: 'Event niet gevonden' });
     }
-    res.json(event);
+
+    // Zorg dat owner een id-string blijft voor compatibiliteit en voeg ownerName toe
+    const ownerId = typeof doc.owner === 'object' && doc.owner !== null ? String(doc.owner._id) : (doc.owner ? String(doc.owner) : undefined);
+    const ownerName = typeof doc.owner === 'object' && doc.owner !== null ? doc.owner.name : undefined;
+    const payload = { ...doc, owner: ownerId, ownerName };
+    res.json(payload);
   } catch (error) {
     console.error('Error fetching event by slug:', { params: req.params, error });
     res.status(500).json({ message: 'Error fetching event', error: error.message });
@@ -272,5 +280,4 @@ export const updateEvent = async (req, res) => {
     res.status(500).json({ message: 'Error updating event', error: error.message });
   }
 };
-
 
