@@ -152,14 +152,14 @@ jobs:
           Remove-Item -Path "C:\TixFlow\wwwroot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\dist\*" -Destination "C:\TixFlow\wwwroot" -Recurse -Force
 
-      - name: Publish IIS web.config (API proxy)
+      - name: "Publish IIS web.config (API proxy)"
         shell: powershell
         run: |
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
 
       # Install backend dependencies — redundant (handled below in PM2 start); removed
 
-      - name: Configure PM2 auto-resurrect at boot
+      - name: "Configure PM2 auto-resurrect at boot"
         shell: powershell
         run: |
           # Gebruik een scheduled task onder SYSTEM zodat PM2 processen automatisch terugkomen bij boot
@@ -173,14 +173,14 @@ jobs:
           schtasks /Create /SC ONSTART /TN $taskName /TR $tr /RL HIGHEST /RU SYSTEM /F
           Write-Host 'Scheduled task created for PM2 resurrect at startup.'
 
-      - name: Install PM2 globally
+      - name: "Install PM2 globally"
         shell: powershell
         run: |
           npm install -g pm2
           Write-Host "PM2 installed; PM2 will manage the runtime."
       # NSSM niet langer gebruikt; PM2 beheert runtime
 
-      - name: Deploy backend via PM2
+      - name: "Deploy backend via PM2"
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -264,7 +264,7 @@ jobs:
             throw "Backend did not reach ready state via PM2/health"
           }
 
-      - name: Confirm backend online via PM2
+      - name: "Confirm backend online via PM2"
         shell: powershell
         run: |
           # Skip handmatige start: PM2 beheert nu de backend
@@ -278,7 +278,7 @@ jobs:
           }
           Write-Host 'PM2 niet gevonden of proces niet online; geen handmatige start hier.'
 
-      - name: Verify backend health
+      - name: "Verify backend health"
         shell: powershell
         run: |
           Start-Sleep -Seconds 7
@@ -289,7 +289,7 @@ jobs:
             Write-Host "Backend health check failed."
           }
 
-      - name: Verify IIS proxy health
+      - name: "Verify IIS proxy health"
         shell: powershell
         run: |
           try {
@@ -300,7 +300,7 @@ jobs:
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
           }
 
-      - name: Smoke test register endpoint (direct & via proxy)
+      - name: "Smoke test register endpoint (direct & via proxy)"
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -352,7 +352,7 @@ jobs:
           node -e $js
           Pop-Location
 
-      - name: Diagnostics: ports & PM2
+      - name: "Diagnostics: ports & PM2"
         shell: powershell
         run: |
           Write-Host 'Listing listeners on :5050'
