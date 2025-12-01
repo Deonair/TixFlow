@@ -16,6 +16,8 @@ import PublicOnly from './components/PublicOnly'
 import AdminDashboard from './components/AdminDashboard'
 import AuthedToDashboard from './components/AuthedToDashboard'
 import UserSettings from './components/UserSettings'
+import CheckoutSuccess from './components/CheckoutSuccess'
+import CheckoutCancel from './components/CheckoutCancel'
 
 function App() {
   useEffect(() => {
@@ -42,6 +44,8 @@ function App() {
           <Route path="/admin/event/:id/edit" element={<RequireAuth><EventEdit /></RequireAuth>} />
           <Route path="/event/:slug" element={<EventLanding />} />
           <Route path="/event/:slug/checkout" element={<EventCheckout />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
           <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
           {/* Organizer route verwijderd; landing na login is /admin/events */}

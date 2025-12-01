@@ -1,0 +1,189 @@
+// backend/controller/paymentController.js
+import Stripe from 'stripe'
+import dotenv from 'dotenv'
+import crypto from 'crypto'
+import { sendTicketsEmail } from '../services/emailService.js'
+
+// Zorg dat env beschikbaar is, ongeacht importvolgorde
+dotenv.config()
+
+// Lazy initialisatie zodat we zeker weten dat env geladen is
+let stripe = null
+const getStripe = () => {
+  if (stripe) return stripe
+  const stripeSecret = process.env.STRIPE_SECRET_KEY
+  if (!stripeSecret) return null
+  stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' })
+  return stripe
+}
+
+export const createCheckoutSession = async (req, res) => {
+  try {
+    const s = getStripe()
+    if (!s) return res.status(500).json({ error: 'Stripe is not configured' })
+
+    const { slug, selections, customer } = req.body || {}
+    if (!Array.isArray(selections) || selections.length === 0 || !slug) {
+      return res.status(400).json({ error: 'Ongeldige payload' })
+    }
+
+    const appBase = process.env.APP_BASE_URL || 'http://localhost:5173'
+    // Haal event en valideer capaciteit per ticket type
+    const { default: Event } = await import('../models/eventModel.js')
+    const { default: Ticket } = await import('../models/ticketModel.js')
+    const eventDoc = await Event.findOne({ slug: String(slug), status: 'active' }).lean()
+    if (!eventDoc) return res.status(404).json({ error: 'Event niet gevonden of inactief' })
+
+    const byName = new Map((eventDoc.ticketTypes || []).map(tt => [String(tt.name), tt]))
+    const line_items = []
+    for (const sel of selections) {
+      const name = String(sel.name || '').trim()
+      const qty = Math.max(1, Number(sel.qty || 0))
+      const tt = byName.get(name)
+      if (!tt) return res.status(400).json({ error: `Ticket type onbekend: ${name}` })
+      // Bepaal remaining = capacity - aantal reeds aangemaakte tickets
+      const sold = await Ticket.countDocuments({ event: eventDoc._id, ticketTypeName: name })
+      const remaining = Math.max(0, Number(tt.capacity || 0) - sold)
+      if (qty > remaining) {
+        return res.status(409).json({ error: `Niet genoeg capaciteit voor ${name}`, remaining })
+      }
+      line_items.push({
+        price_data: {
+          currency: 'eur',
+          product_data: { name: `${name} – ${slug}` },
+          // Prijs afdwingen vanuit server-side event config
+          unit_amount: Math.round(Number(tt.price || 0) * 100),
+        },
+        quantity: qty,
+      })
+    }
+
+    const session = await s.checkout.sessions.create({
+      mode: 'payment',
+      line_items,
+      customer_email: customer?.email,
+      client_reference_id: String(slug),
+      metadata: { eventSlug: String(slug) },
+      success_url: `${appBase}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appBase}/checkout/cancel`,
+    })
+
+    // Vanaf nieuwe Stripe.js versies is redirectToCheckout verwijderd.
+    // Gebruik de door Stripe gegenereerde sessie-URL om te navigeren.
+    return res.json({ sessionId: session.id, url: session.url })
+  } catch (err) {
+    console.error('Stripe checkout error:', err)
+    return res.status(500).json({ error: 'Kon geen checkout sessie maken' })
+  }
+}
+
+export const handleStripeWebhook = async (req, res) => {
+  try {
+    const s = getStripe()
+    if (!s) return res.status(500).json({ error: 'Stripe is not configured' })
+    const sig = req.headers['stripe-signature']
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+    if (!webhookSecret) return res.status(400).json({ error: 'Webhook secret ontbreekt' })
+
+    let event
+    try {
+      event = s.webhooks.constructEvent(req.body, sig, webhookSecret)
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err)
+      return res.status(400).send(`Webhook Error: ${err.message}`)
+    }
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object
+        // Verrijk sessie met line items en sla order op
+        const expanded = await s.checkout.sessions.retrieve(session.id, { expand: ['line_items'] })
+        const lineItems = expanded?.line_items?.data || []
+        const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
+        try {
+          const { default: Event } = await import('../models/eventModel.js')
+          const { default: Order } = await import('../models/orderModel.js')
+          const { default: Ticket } = await import('../models/ticketModel.js')
+          const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
+          if (!eventDoc) {
+            console.warn('Webhook: event niet gevonden voor slug', clientRef)
+            break
+          }
+          const items = lineItems.map(li => ({
+            name: li.description,
+            unitAmount: li.price?.unit_amount ?? 0,
+            quantity: li.quantity ?? 0,
+          }))
+          const orderDoc = await Order.create({
+            event: eventDoc._id,
+            items,
+            amountTotal: expanded.amount_total ?? 0,
+            currency: expanded.currency || 'eur',
+            customerEmail: expanded.customer_details?.email || expanded.customer_email || 'unknown@example.com',
+            stripeSessionId: expanded.id,
+            paymentIntentId: expanded.payment_intent ? String(expanded.payment_intent) : undefined,
+            status: 'paid',
+          })
+
+          // Genereer tickets op basis van bestelde aantallen
+          const tickets = []
+          for (const li of items) {
+            const qty = Math.max(0, Number(li.quantity) || 0)
+            for (let i = 0; i < qty; i++) {
+              // Kortere, unieke token (8 hex chars), met fallback bij botsing
+              let token = crypto.randomBytes(4).toString('hex')
+              try {
+                const { default: Ticket } = await import('../models/ticketModel.js')
+                let tries = 0
+                while (tries < 5) {
+                  const exists = await Ticket.findOne({ token }).lean()
+                  if (!exists) break
+                  token = crypto.randomBytes(4).toString('hex')
+                  tries++
+                }
+              } catch (tokErr) {
+                // Ga gewoon door; unieke index zal botsing voorkomen door fout
+              }
+              const ticket = await Ticket.create({
+                event: eventDoc._id,
+                order: orderDoc._id,
+                attendeeEmail: orderDoc.customerEmail,
+                ticketTypeName: li.name,
+                token,
+              })
+              tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
+            }
+          }
+
+          // Stuur tickets per e-mail naar de klant
+          try {
+            await sendTicketsEmail({
+              to: orderDoc.customerEmail,
+              event: { title: eventDoc.title, location: eventDoc.location, date: eventDoc.date },
+              tickets,
+              order: {
+                amountCents: orderDoc.amountTotal,
+                currency: orderDoc.currency || 'EUR',
+                items,
+              },
+            })
+          } catch (mailErr) {
+            console.error('E-mail verzenden mislukt:', mailErr)
+          }
+        } catch (saveErr) {
+          console.error('Order opslaan mislukt:', saveErr)
+        }
+        break
+      }
+      default:
+        console.log(`Unhandled event type ${event.type}`)
+    }
+
+    res.json({ received: true })
+  } catch (err) {
+    console.error('Webhook handler error:', err)
+    res.status(500).json({ error: 'Interne fout bij webhook' })
+  }
+}
+
+export default { createCheckoutSession, handleStripeWebhook }

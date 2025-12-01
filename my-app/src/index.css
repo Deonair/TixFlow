@@ -10,3 +10,13 @@
 }
 
 /* (verwijderd) globale blauwe achtergrond; terug naar standaard achtergrondkleur */
+
+/* Verberg up/down spinners bij number inputs (we gebruiken eigen +/- knoppen) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+}

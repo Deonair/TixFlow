@@ -19,6 +19,8 @@ function EventDetail() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyTimeoutId, setCopyTimeoutId] = useState<number | null>(null);
+  const [stats, setStats] = useState<{ revenueCents: number; ticketsSold: number; ordersCount: number } | null>(null)
+  const [orders, setOrders] = useState<Array<{ _id: string; customerEmail: string; amountTotal: number; createdAt: string }>>([])
 
   const isObjectId = /^[a-fA-F0-9]{24}$/.test(id || '');
 
@@ -40,6 +42,40 @@ function EventDetail() {
     };
     if (id) fetchEvent();
   }, [id]);
+
+  // Haal statistieken en recente orders voor dit event op
+  useEffect(() => {
+    let cancelled = false
+    const fetchStatsAndOrders = async () => {
+      if (!id) return
+      try {
+        const [statsRes, ordersRes] = await Promise.all([
+          fetch(`/api/stats/event/${id}`),
+          fetch(`/api/orders?eventId=${id}&limit=10`),
+        ])
+        if (statsRes.ok) {
+          const s = await statsRes.json()
+          if (!cancelled) setStats({ revenueCents: s.revenueCents ?? 0, ticketsSold: s.ticketsSold ?? 0, ordersCount: s.ordersCount ?? 0 })
+        } else if (!cancelled) {
+          setStats(null)
+        }
+        if (ordersRes.ok) {
+          const o = await ordersRes.json()
+          const slim = Array.isArray(o) ? o.map((x: any) => ({ _id: String(x._id), customerEmail: x.customerEmail, amountTotal: x.amountTotal, createdAt: x.createdAt })) : []
+          if (!cancelled) setOrders(slim)
+        } else if (!cancelled) {
+          setOrders([])
+        }
+      } catch {
+        if (!cancelled) {
+          setStats(null)
+          setOrders([])
+        }
+      }
+    }
+    fetchStatsAndOrders()
+    return () => { cancelled = true }
+  }, [id])
 
   useEffect(() => {
     return () => {
@@ -174,6 +210,54 @@ function EventDetail() {
                   </div>
                 </div>
               )}
+            </div>
+            {/* Statistieken voor dit event */}
+            {stats && (
+              <div className="mt-8">
+                <h2 className="text-lg font-semibold mb-3">Statistieken</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-xs text-gray-500">Omzet</div>
+                    <div className="mt-1 text-2xl font-semibold text-gray-900">€ {(stats.revenueCents / 100).toFixed(2)}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-xs text-gray-500">Tickets verkocht</div>
+                    <div className="mt-1 text-2xl font-semibold text-gray-900">{stats.ticketsSold}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-xs text-gray-500">Bestellingen</div>
+                    <div className="mt-1 text-2xl font-semibold text-gray-900">{stats.ordersCount}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recente orders */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900">Recente orders</h3>
+                <a
+                  href={`/api/orders/export?eventId=${id}`}
+                  className="text-sm inline-flex items-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-900 hover:bg-gray-100"
+                >
+                  Exporteer CSV
+                </a>
+              </div>
+              <div className="rounded-lg border border-gray-200 overflow-hidden mt-2">
+                {orders.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-600">Geen bestellingen</div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {orders.map(o => (
+                      <li key={o._id} className="px-4 py-3 flex items-center justify-between">
+                        <div className="text-sm text-gray-800">{o.customerEmail}</div>
+                        <div className="text-sm font-medium text-gray-900">€ {(o.amountTotal / 100).toFixed(2)}</div>
+                        <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
             {event.slug && (
               <div className="mt-8">

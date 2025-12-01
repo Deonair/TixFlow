@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { loadStripe } from '@stripe/stripe-js'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 
 type Selection = { name: string; price: number; qty: number }
@@ -48,11 +49,33 @@ const EventCheckout = () => {
     return Object.keys(next).length === 0
   }
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     if (!validate()) return
-    // Voor nu simuleren we doorgaan naar betaling
-    alert('Checkout gegevens klaar — betaalstap volgt')
+    if (!event) {
+      alert('Geen event geselecteerd. Ga terug en kies je tickets.')
+      return
+    }
+    try {
+      const res = await fetch('/api/payments/checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: event.slug,
+          selections,
+          customer: { firstName, lastName, email },
+        })
+      })
+      if (!res.ok) throw new Error('Kon geen checkout sessie maken')
+      const data = await res.json()
+      const url: string | undefined = data.url as string | undefined
+      if (!url) throw new Error('Checkout URL ontbreekt')
+      window.location.assign(url)
+    } catch (err) {
+      console.error(err)
+      const msg = err instanceof Error ? err.message : ''
+      alert(msg ? `Fout: ${msg}` : 'Er ging iets mis bij het starten van je betaling. Probeer opnieuw.')
+    }
   }
 
   if (!event || selections.length === 0) {
@@ -130,7 +153,7 @@ const EventCheckout = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(`/event/${event.slug}`)}
+                  onClick={() => navigate(`/event/${event?.slug ?? slug ?? ''}`)}
                   className="ml-3 inline-flex items-center justify-center rounded-lg bg-gray-100 px-4 py-2.5 text-gray-900 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
                 >
                   Terug

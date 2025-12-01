@@ -1,4 +1,4 @@
-name: TixFlow CI/CD Deployment
+name: TixFlow Production Deploy
 
 on:
   push:
@@ -10,28 +10,28 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      - name: 1. Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: 1b. Move Code to C:\TixFlow\ProjectRoot
+      - name: Sync repository to deploy root
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path "C:\TixFlow\ProjectRoot" -ErrorAction SilentlyContinue | Out-Null
           Remove-Item -Path "C:\TixFlow\ProjectRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "${{ github.workspace }}\*" -Destination "C:\TixFlow\ProjectRoot" -Recurse -Force
 
-      - name: 2. Set up Node.js Environment
+      - name: Setup Node 22 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: '25'
+          node-version: '22'
 
-      - name: 2b. Resolve Node Path
+      - name: Expose Node path (diagnostic)
         shell: powershell
         run: |
           $node = (Get-Command node).Source
           echo "NODE_PATH=$node" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: 2c. Ensure MongoDB Running (Service or Local mongod)
+      - name: Ensure MongoDB available
         shell: powershell
         run: |
           $svc = Get-Service -Name 'MongoDB' -ErrorAction SilentlyContinue
@@ -61,17 +61,39 @@ jobs:
           }
           Start-Sleep -Seconds 3
 
-      - name: 3. Install Frontend Dependencies
+      - name: Sync environment files (backend & frontend)
         shell: powershell
-        run: npm install
-        working-directory: C:\TixFlow\ProjectRoot\my-app
+        run: |
+          $root = 'C:\TixFlow\ProjectRoot'
+          $secrets = 'C:\TixFlow\Secrets'
+          $beEnvSrc = Join-Path $secrets 'backend\.env'
+          $beEnvDst = Join-Path $root 'my-app\backend\.env'
+          $feEnvProdSrc = Join-Path $secrets 'frontend\.env.production'
+          $feEnvProdDst = Join-Path $root 'my-app\.env.production'
+          $feEnvSrc = Join-Path $secrets 'frontend\.env'
+          $feEnvDst = Join-Path $root 'my-app\.env'
+          if (Test-Path $beEnvSrc) { Copy-Item -Path $beEnvSrc -Destination $beEnvDst -Force; Write-Host "Copied backend .env" } else { Write-Host "Backend .env not found in Secrets (skipping)" }
+          if (Test-Path $feEnvProdSrc) { Copy-Item -Path $feEnvProdSrc -Destination $feEnvProdDst -Force; Write-Host "Copied frontend .env.production" } else { Write-Host "Frontend .env.production not found (skipping)" }
+          if (Test-Path $feEnvSrc) { Copy-Item -Path $feEnvSrc -Destination $feEnvDst -Force; Write-Host "Copied frontend .env" } else { Write-Host "Frontend .env not found (skipping)" }
 
-      - name: 4. Build Frontend for Production
+      - name: Install frontend dependencies (npm ci)
+        shell: powershell
+        working-directory: C:\TixFlow\ProjectRoot\my-app
+        run: |
+          if (Test-Path 'package-lock.json') {
+            Write-Host 'Using npm ci for deterministic install'
+            npm ci
+          } else {
+            Write-Host 'No package-lock.json; falling back to npm install'
+            npm install
+          }
+
+      - name: Build frontend (production)
         shell: powershell
         run: npm run build
         working-directory: C:\TixFlow\ProjectRoot\my-app
 
-      - name: 5. Stop Old Backend Server (Cruciaal voor herstart)
+      - name: Stop previous backend instance
         shell: powershell
         run: |
           # Probeer eerst via PM2 als beschikbaar
@@ -123,24 +145,21 @@ jobs:
           # Zorg dat deze stap nooit faalt als er niets te stoppen valt
           $global:LASTEXITCODE = 0
 
-      - name: 6. Copy Frontend Files to IIS Root
+      - name: Publish frontend to IIS
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path "C:\TixFlow\wwwroot" -ErrorAction SilentlyContinue | Out-Null
           Remove-Item -Path "C:\TixFlow\wwwroot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\dist\*" -Destination "C:\TixFlow\wwwroot" -Recurse -Force
 
-      - name: 6c. Ensure web.config for IIS proxy
+      - name: Publish IIS web.config (API proxy)
         shell: powershell
         run: |
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
 
-      - name: 6b. Install Backend Dependencies
-        shell: powershell
-        run: npm install
-        working-directory: C:\TixFlow\ProjectRoot\my-app\backend
+      # Install backend dependencies — redundant (handled below in PM2 start); removed
 
-      - name: 6c2. Configure PM2 auto-resurrect at startup (non-interactive)
+      - name: Configure PM2 auto-resurrect at boot
         shell: powershell
         run: |
           # Gebruik een scheduled task onder SYSTEM zodat PM2 processen automatisch terugkomen bij boot
@@ -154,14 +173,14 @@ jobs:
           schtasks /Create /SC ONSTART /TN $taskName /TR $tr /RL HIGHEST /RU SYSTEM /F
           Write-Host 'Scheduled task created for PM2 resurrect at startup.'
 
-      - name: 6d. Install PM2 (optional, no runtime start)
+      - name: Install PM2 globally
         shell: powershell
         run: |
           npm install -g pm2
           Write-Host "PM2 installed; PM2 will manage the runtime."
-      # 6e. (verwijderd) — NSSM wordt niet langer gebruikt; PM2 beheert runtime
+      # NSSM niet langer gebruikt; PM2 beheert runtime
 
-      - name: 6f. Start backend via PM2 (replace NSSM)
+      - name: Deploy backend via PM2
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -245,7 +264,7 @@ jobs:
             throw "Backend did not reach ready state via PM2/health"
           }
 
-      - name: 7. Start Backend Server (Finale Start)
+      - name: Confirm backend online via PM2
         shell: powershell
         run: |
           # Skip handmatige start: PM2 beheert nu de backend
@@ -259,7 +278,7 @@ jobs:
           }
           Write-Host 'PM2 niet gevonden of proces niet online; geen handmatige start hier.'
 
-      - name: 8. Verify Backend Health
+      - name: Verify backend health
         shell: powershell
         run: |
           Start-Sleep -Seconds 7
@@ -270,7 +289,7 @@ jobs:
             Write-Host "Backend health check failed."
           }
 
-      - name: 8b. Verify IIS Proxy Health (detect 502)
+      - name: Verify IIS proxy health
         shell: powershell
         run: |
           try {
@@ -281,7 +300,7 @@ jobs:
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
           }
 
-      - name: 8c. Diagnostic POST tests (direct and via proxy)
+      - name: Smoke test register endpoint (direct & via proxy)
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -333,7 +352,7 @@ jobs:
           node -e $js
           Pop-Location
 
-      - name: 8d. Port and process diagnostics
+      - name: Diagnostics: ports & PM2
         shell: powershell
         run: |
           Write-Host 'Listing listeners on :5050'

@@ -153,6 +153,21 @@ export const getEventBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Event niet gevonden' });
     }
 
+    // Bereken resterende capaciteit per tickettype op basis van verkochte tickets
+    try {
+      const { default: Ticket } = await import('../models/ticketModel.js')
+      const ticketTypes = Array.isArray(doc.ticketTypes) ? doc.ticketTypes.map(tt => ({ ...tt })) : []
+      for (const tt of ticketTypes) {
+        const sold = await Ticket.countDocuments({ event: doc._id, ticketTypeName: tt.name })
+        const remaining = Math.max(0, Number(tt.capacity || 0) - Number(sold || 0))
+        tt.capacity = remaining
+      }
+      doc.ticketTypes = ticketTypes
+    } catch (calcErr) {
+      // Laat endpoint niet falen door een rekenfout; log wel voor debug
+      console.error('Kon resterende capaciteit niet berekenen:', calcErr)
+    }
+
     // Zorg dat owner een id-string blijft voor compatibiliteit en voeg ownerName toe
     const ownerId = typeof doc.owner === 'object' && doc.owner !== null ? String(doc.owner._id) : (doc.owner ? String(doc.owner) : undefined);
     const ownerName = typeof doc.owner === 'object' && doc.owner !== null ? doc.owner.name : undefined;
@@ -280,4 +295,3 @@ export const updateEvent = async (req, res) => {
     res.status(500).json({ message: 'Error updating event', error: error.message });
   }
 };
-
