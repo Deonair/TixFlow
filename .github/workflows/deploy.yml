@@ -76,6 +76,42 @@ jobs:
           if (Test-Path $feEnvProdSrc) { Copy-Item -Path $feEnvProdSrc -Destination $feEnvProdDst -Force; Write-Host "Copied frontend .env.production" } else { Write-Host "Frontend .env.production not found (skipping)" }
           if (Test-Path $feEnvSrc) { Copy-Item -Path $feEnvSrc -Destination $feEnvDst -Force; Write-Host "Copied frontend .env" } else { Write-Host "Frontend .env not found (skipping)" }
 
+
+      - name: Generate env files from GitHub Secrets (fallback)
+        shell: powershell
+        run: |
+          $root = 'C:\TixFlow\ProjectRoot'
+          $beEnvDst = Join-Path $root 'my-app\backend\.env'
+          $feEnvProdDst = Join-Path $root 'my-app\.env.production'
+
+          if (-not (Test-Path $beEnvDst)) {
+            $content = @"
+NODE_ENV=production
+PORT=5050
+APP_BASE_URL=${{ secrets.APP_BASE_URL }}
+MONGO_URI=${{ secrets.MONGO_URI }}
+SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+EMAIL_FROM=${{ secrets.EMAIL_FROM }}
+STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+"@
+            Set-Content -Path $beEnvDst -Value $content -NoNewline
+            Write-Host "Generated backend .env from GitHub Secrets."
+          } else {
+            Write-Host "Backend .env already present; keeping server-side Secrets copy."
+          }
+
+          if (-not (Test-Path $feEnvProdDst)) {
+            $contentFe = @"
+VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+"@
+            Set-Content -Path $feEnvProdDst -Value $contentFe -NoNewline
+            Write-Host "Generated frontend .env.production from GitHub Secrets."
+          } else {
+            Write-Host "Frontend .env.production already present; keeping server-side Secrets copy."
+          }
+
       - name: Install frontend dependencies (npm ci)
         shell: powershell
         working-directory: C:\TixFlow\ProjectRoot\my-app
@@ -298,6 +334,19 @@ jobs:
             try { $json = $resp.Content | ConvertFrom-Json; Write-Host ($json | ConvertTo-Json) } catch { Write-Host "Non-JSON response from proxy" }
           } catch {
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
+          }
+
+      - name: "Verify public health (best effort)"
+        shell: powershell
+        run: |
+          try {
+            $url = "${{ secrets.APP_BASE_URL }}/api/health"
+            Write-Host ("Checking public URL: {0}" -f $url)
+            $resp = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec 6 -UseBasicParsing
+            Write-Host ("Public health status: {0}" -f $resp.StatusCode)
+            try { $json = $resp.Content | ConvertFrom-Json; Write-Host ($json | ConvertTo-Json) } catch { Write-Host "Public response not JSON" }
+          } catch {
+            Write-Host ("Public health check failed (non-blocking): {0}" -f $_.Exception.Message)
           }
 
       - name: "Smoke test register endpoint (direct & via proxy)"
