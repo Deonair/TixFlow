@@ -48,19 +48,19 @@ async function generateTicketPdf({ event, ticket, baseUrl }) {
       doc.fontSize(12).text(`Ticketcode: ${ticket.token}`)
       doc.moveDown(1)
 
-      // QR
-      try {
-        doc.image(qrPng, { fit: [220, 220], align: 'left' })
-      } catch (e) {
-        doc.fontSize(11).fillColor('red').text('QR kon niet geladen worden.')
-        doc.fillColor('#000')
-      }
+  // QR
+  try {
+    doc.image(qrPng, { fit: [220, 220], align: 'left' })
+  } catch (e) {
+    doc.fontSize(11).fillColor('red').text('QR kon niet geladen worden.')
+    doc.fillColor('#000')
+  }
 
-      doc.moveDown(1)
-      doc.fontSize(11).fillColor('#333').text('Scan de QR bij de ingang.')
-      doc.fillColor('#000')
-      doc.moveDown(2)
-      doc.fontSize(10).text('Bewaar dit ticket. Bij misbruik kan toegang geweigerd worden. Het ticket is uniek en éénmalig te scannen.', { align: 'left' })
+  doc.moveDown(1)
+  doc.fontSize(11).fillColor('#333').text('Scan de QR bij de ingang.')
+  doc.fillColor('#000')
+  doc.moveDown(2)
+  doc.fontSize(10).text('Bewaar dit ticket. Bij misbruik kan toegang geweigerd worden. Het ticket is uniek en éénmalig te scannen.', { align: 'left' })
 
       doc.end()
     } catch (err) {
