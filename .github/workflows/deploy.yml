@@ -95,16 +95,16 @@ jobs:
 
           if (-not (Test-Path $beEnvDst)) {
             $content = @"
-NODE_ENV=production
-PORT=5050
-APP_BASE_URL=$env:APP_BASE_URL
-MONGO_URI=$env:MONGO_URI
-SESSION_SECRET=$env:SESSION_SECRET
-RESEND_API_KEY=$env:RESEND_API_KEY
-EMAIL_FROM=$env:EMAIL_FROM
-STRIPE_SECRET_KEY=$env:STRIPE_SECRET_KEY
-STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET
-"@
+            NODE_ENV=production
+            PORT=5050
+            APP_BASE_URL=$env:APP_BASE_URL
+            MONGO_URI=$env:MONGO_URI
+            SESSION_SECRET=$env:SESSION_SECRET
+            RESEND_API_KEY=$env:RESEND_API_KEY
+            EMAIL_FROM=$env:EMAIL_FROM
+            STRIPE_SECRET_KEY=$env:STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET
+            "@
             Set-Content -Path $beEnvDst -Value $content -NoNewline
             Write-Host "Generated backend .env from GitHub Secrets."
           } else {
@@ -113,8 +113,8 @@ STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET
 
           if (-not (Test-Path $feEnvProdDst)) {
             $contentFe = @"
-VITE_API_BASE_URL=$env:VITE_API_BASE_URL
-"@
+            VITE_API_BASE_URL=$env:VITE_API_BASE_URL
+            "@
             Set-Content -Path $feEnvProdDst -Value $contentFe -NoNewline
             Write-Host "Generated frontend .env.production from GitHub Secrets."
           } else {
