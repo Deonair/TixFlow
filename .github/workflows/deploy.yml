@@ -80,14 +80,14 @@ jobs:
       - name: Generate env files from GitHub Secrets (fallback)
         shell: powershell
         env:
-          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          APP_BASE_URL: "${{ secrets.APP_BASE_URL }}"
+          MONGO_URI: "${{ secrets.MONGO_URI }}"
+          SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
+          RESEND_API_KEY: "${{ secrets.RESEND_API_KEY }}"
+          EMAIL_FROM: "${{ secrets.EMAIL_FROM }}"
+          STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
+          STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+          VITE_API_BASE_URL: "${{ secrets.VITE_API_BASE_URL }}"
         run: |
           $root = 'C:\TixFlow\ProjectRoot'
           $beEnvDst = Join-Path $root 'my-app\backend\.env'
