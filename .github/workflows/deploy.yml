@@ -94,17 +94,18 @@ jobs:
           $feEnvProdDst = Join-Path $root 'my-app\.env.production'
 
           if (-not (Test-Path $beEnvDst)) {
-            $content = @"
-            NODE_ENV=production
-            PORT=5050
-            APP_BASE_URL=$env:APP_BASE_URL
-            MONGO_URI=$env:MONGO_URI
-            SESSION_SECRET=$env:SESSION_SECRET
-            RESEND_API_KEY=$env:RESEND_API_KEY
-            EMAIL_FROM=$env:EMAIL_FROM
-            STRIPE_SECRET_KEY=$env:STRIPE_SECRET_KEY
-            STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET
-            "@
+            $contentLines = @(
+              'NODE_ENV=production',
+              'PORT=5050',
+              "APP_BASE_URL=$env:APP_BASE_URL",
+              "MONGO_URI=$env:MONGO_URI",
+              "SESSION_SECRET=$env:SESSION_SECRET",
+              "RESEND_API_KEY=$env:RESEND_API_KEY",
+              "EMAIL_FROM=$env:EMAIL_FROM",
+              "STRIPE_SECRET_KEY=$env:STRIPE_SECRET_KEY",
+              "STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET"
+            )
+            $content = [string]::Join("`n", $contentLines)
             Set-Content -Path $beEnvDst -Value $content -NoNewline
             Write-Host "Generated backend .env from GitHub Secrets."
           } else {
@@ -112,9 +113,10 @@ jobs:
           }
 
           if (-not (Test-Path $feEnvProdDst)) {
-            $contentFe = @"
-            VITE_API_BASE_URL=$env:VITE_API_BASE_URL
-            "@
+            $contentFeLines = @(
+              "VITE_API_BASE_URL=$env:VITE_API_BASE_URL"
+            )
+            $contentFe = [string]::Join("`n", $contentFeLines)
             Set-Content -Path $feEnvProdDst -Value $contentFe -NoNewline
             Write-Host "Generated frontend .env.production from GitHub Secrets."
           } else {
