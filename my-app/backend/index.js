@@ -42,10 +42,11 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({ mongoUrl: uri, ttl: 60 * 60 * 24 * 7 }),
+  proxy: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
+    secure: 'auto'
   }
 }));
 
