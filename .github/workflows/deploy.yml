@@ -43,20 +43,51 @@ jobs:
               Write-Host 'MongoDB Windows service already running.'
             }
           } else {
-            Write-Host 'MongoDB service not found; trying to start local mongod.'
-            $dataPath = 'C:\TixFlow\Mongo\data'
+            Write-Host 'MongoDB service not found; trying local mongod and installing if needed.'
+            $basePath = 'C:\TixFlow\Mongo'
+            $dataPath = Join-Path $basePath 'data'
+            $binPath = Join-Path $basePath 'bin'
             New-Item -ItemType Directory -Path $dataPath -ErrorAction SilentlyContinue | Out-Null
-            # Try common install path, fallback to custom path
+            New-Item -ItemType Directory -Path $binPath -ErrorAction SilentlyContinue | Out-Null
+
+            # Try common install path, then custom path
             $mongod = 'C:\Program Files\MongoDB\Server\7.0\bin\mongod.exe'
             if (-not (Test-Path $mongod)) { $mongod = 'C:\Program Files\MongoDB\Server\6.0\bin\mongod.exe' }
-            if (-not (Test-Path $mongod)) { $mongod = 'C:\TixFlow\Mongo\bin\mongod.exe' }
+            if (-not (Test-Path $mongod)) { $mongod = Join-Path $binPath 'mongod.exe' }
+
+            if (-not (Test-Path $mongod)) {
+              Write-Host 'mongod.exe not found; attempting to download portable MongoDB ZIP.'
+              $zipCandidates = @(
+                'https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.14.zip',
+                'https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-6.0.15.zip'
+              )
+              $zipOut = 'C:\TixFlow\mongo.zip'
+              foreach ($url in $zipCandidates) {
+                try {
+                  Write-Host ("Downloading MongoDB from {0}" -f $url)
+                  Invoke-WebRequest -Uri $url -OutFile $zipOut -UseBasicParsing -TimeoutSec 60
+                  Expand-Archive -Path $zipOut -DestinationPath $basePath -Force
+                  Remove-Item $zipOut -Force -ErrorAction SilentlyContinue
+                  $found = Get-ChildItem -Path $basePath -Recurse -Filter 'mongod.exe' -File | Select-Object -First 1
+                  if ($found) { $mongod = $found.FullName; break }
+                } catch {
+                  Write-Host ("Download/expand failed: {0}" -f $_.Exception.Message)
+                }
+              }
+            }
+
             if (Test-Path $mongod) {
               $args = "--dbpath $dataPath --bind_ip 127.0.0.1 --port 27017"
-              $proc = Start-Process -FilePath $mongod -ArgumentList $args -NoNewWindow -PassThru
-              Set-Content -Path 'C:\TixFlow\ProjectRoot\mongo.pid' -Value $proc.Id
-              Write-Host "Started mongod. PID: $($proc.Id)"
+              Write-Host ("Starting mongod: {0} {1}" -f $mongod, $args)
+              try {
+                $proc = Start-Process -FilePath $mongod -ArgumentList $args -NoNewWindow -PassThru
+                Set-Content -Path 'C:\TixFlow\ProjectRoot\mongo.pid' -Value $proc.Id
+                Write-Host ("Started mongod. PID: {0}" -f $proc.Id)
+              } catch {
+                Write-Host ("Failed to start mongod: {0}" -f $_.Exception.Message)
+              }
             } else {
-              Write-Host 'mongod.exe not found. Please install MongoDB or adjust path.'
+              Write-Host 'MongoDB could not be installed automatically; please install manually or adjust path.'
             }
           }
           Start-Sleep -Seconds 3
