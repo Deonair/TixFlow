@@ -149,11 +149,16 @@ async function processPaidSession(expanded) {
       return { status: 'already_processed', orderId: existing._id }
     }
 
-    const items = lineItems.map(li => ({
-      name: li.description,
-      unitAmount: li.price?.unit_amount ?? 0,
-      quantity: li.quantity ?? 0,
-    }))
+    const items = lineItems.map(li => {
+      const fullName = li.description
+      const typeName = typeof fullName === 'string' ? fullName.split(' – ')[0]?.trim() : 'Ticket'
+      return {
+        name: fullName,
+        typeName, // puur tickettype voor capaciteit en opslag
+        unitAmount: li.price?.unit_amount ?? 0,
+        quantity: li.quantity ?? 0,
+      }
+    })
 
     const orderDoc = await Order.create({
       event: eventDoc._id,
@@ -184,7 +189,7 @@ async function processPaidSession(expanded) {
           event: eventDoc._id,
           order: orderDoc._id,
           attendeeEmail: orderDoc.customerEmail,
-          ticketTypeName: li.name,
+          ticketTypeName: li.typeName,
           token,
         })
         tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
