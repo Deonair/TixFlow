@@ -9,7 +9,7 @@ const Navbar = () => {
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch('/api/users/me');
+        const res = await fetch('/api/users/me', { credentials: 'include' });
         if (!cancelled) setAuthed(res.ok);
       } catch {
         if (!cancelled) setAuthed(false);
@@ -38,37 +38,33 @@ const Navbar = () => {
             <>
               <Link
                 to="/admin"
-                className={`font-medium ${
-                  location.pathname === '/admin' || location.pathname === '/admin/dashboard'
+                className={`font-medium ${location.pathname === '/admin' || location.pathname === '/admin/dashboard'
                     ? 'text-blue-600'
                     : 'text-gray-600 hover:text-blue-600'
-                } focus:outline-none`}
+                  } focus:outline-none`}
               >
                 Dashboard
               </Link>
               <div className="relative group">
                 <button
                   type="button"
-                  className={`font-medium ${
-                  eventsActive ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
-                  } focus:outline-none`}
+                  className={`font-medium ${eventsActive ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
+                    } focus:outline-none`}
                 >
                   Events
                 </button>
                 <div className="absolute right-0 top-full min-w-[12rem] rounded-lg border border-gray-200 bg-white shadow-md hidden group-hover:block group-focus-within:block hover:block z-50">
                   <Link
                     to="/admin/events"
-                    className={`block px-4 py-2 text-sm ${
-                      isEventsIndex ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className={`block px-4 py-2 text-sm ${isEventsIndex ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                   >
                     Alle events
                   </Link>
                   <Link
                     to="/admin/event/new"
-                    className={`block px-4 py-2 text-sm ${
-                      isEventNew ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className={`block px-4 py-2 text-sm ${isEventNew ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                   >
                     Nieuw event
                   </Link>
@@ -80,24 +76,22 @@ const Navbar = () => {
             <div className="relative group">
               <button
                 type="button"
-                className={`font-medium ${
-                  isUserSettings ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
-                } focus:outline-none`}
+                className={`font-medium ${isUserSettings ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
+                  } focus:outline-none`}
               >
                 Profiel
               </button>
               <div className="absolute right-0 top-full min-w-[12rem] rounded-lg border border-gray-200 bg-white shadow-md hidden group-hover:block group-focus-within:block hover:block z-50">
                 <Link
                   to="/admin/settings"
-                  className={`block px-4 py-2 text-sm ${
-                    isUserSettings ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`block px-4 py-2 text-sm ${isUserSettings ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                   User settings
                 </Link>
                 <button
                   onClick={async () => {
-                    try { await fetch('/api/users/logout', { method: 'POST' }); } catch {}
+                    try { await fetch('/api/users/logout', { method: 'POST', credentials: 'include' }); } catch { }
                     setAuthed(false);
                     navigate('/login');
                   }}
@@ -111,21 +105,19 @@ const Navbar = () => {
             <>
               <Link
                 to={'/login'}
-                className={`font-medium ${
-                  location.pathname === '/login'
+                className={`font-medium ${location.pathname === '/login'
                     ? 'text-blue-600'
                     : 'text-gray-600 hover:text-blue-600'
-                } focus:outline-none`}
+                  } focus:outline-none`}
               >
                 Login
               </Link>
               <Link
                 to={'/register'}
-                className={`font-medium ${
-                  location.pathname === '/register'
+                className={`font-medium ${location.pathname === '/register'
                     ? 'text-blue-600'
                     : 'text-gray-600 hover:text-blue-600'
-                } focus:outline-none`}
+                  } focus:outline-none`}
               >
                 Registreer
               </Link>

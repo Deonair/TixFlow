@@ -2,6 +2,12 @@
   "dependencies": {
     "rippleui": "^1.12.1"
   },
+  "scripts": {
+    "dev": "npm --prefix my-app run dev",
+    "preview": "npm --prefix my-app run preview",
+    "dev:all": "npm --prefix my-app run dev:all",
+    "dev:all:stripe": "npm --prefix my-app run dev:all:stripe"
+  },
   "devDependencies": {
     "cypress": "^15.6.0",
     "react": "^19.2.0",

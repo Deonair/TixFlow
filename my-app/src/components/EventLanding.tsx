@@ -134,37 +134,62 @@ const EventLanding = () => {
 
                 <div className="mt-8">
                   <h2 className="text-lg font-semibold mb-4">Tickets kiezen</h2>
+                  {Array.isArray(event.ticketTypes) && event.ticketTypes.every(tt => (tt.capacity ?? 0) <= 0) && (
+                    <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                      Dit event is uitverkocht. Er zijn geen tickets meer beschikbaar.
+                    </div>
+                  )}
                   {Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 ? (
                     <div className="space-y-4">
                       {event.ticketTypes.map((tt, idx) => (
                         <div key={`${tt.name}-${idx}`} className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
                           <div>
-                            <div className="font-medium text-gray-900">{tt.name}</div>
+                            <div className="font-medium text-gray-900 flex items-center">
+                              {tt.name}
+                              {(tt.capacity ?? 0) <= 0 && (
+                                <span className="ml-2 inline-flex items-center rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Uitverkocht</span>
+                              )}
+                            </div>
                             <div className="text-sm text-gray-600">{fmtCurrency(tt.price)} · Capaciteit: {tt.capacity}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                              onClick={() => setQty(idx, (quantities[idx] ?? 0) - 1)}
-                              aria-label="Verlaag aantal"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="number"
-                              min={0}
-                              max={tt.capacity ?? 0}
-                              value={quantities[idx] ?? 0}
-                              onChange={e => setQty(idx, Number(e.target.value))}
-                              className="w-16 h-9 text-center rounded-md border border-gray-300"
-                            />
-                            <button
-                              className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                              onClick={() => setQty(idx, (quantities[idx] ?? 0) + 1)}
-                              aria-label="Verhoog aantal"
-                            >
-                              +
-                            </button>
+                            {(() => {
+                              const cap = Math.max(0, tt.capacity ?? 0)
+                              const qty = quantities[idx] ?? 0
+                              const soldOut = cap <= 0
+                              const minusDisabled = qty <= 0 || soldOut
+                              const plusDisabled = soldOut || qty >= cap
+                              const btnBase = 'h-9 w-9 inline-flex items-center justify-center rounded-md border border-gray-300'
+                              return (
+                                <>
+                                  <button
+                                    className={`${btnBase} ${minusDisabled ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
+                                    onClick={() => !minusDisabled && setQty(idx, qty - 1)}
+                                    aria-label="Verlaag aantal"
+                                    disabled={minusDisabled}
+                                  >
+                                    −
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={cap}
+                                    value={qty}
+                                    onChange={e => setQty(idx, Number(e.target.value))}
+                                    className={`w-16 h-9 text-center rounded-md border ${soldOut ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
+                                    disabled={soldOut}
+                                  />
+                                  <button
+                                    className={`${btnBase} ${plusDisabled ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
+                                    onClick={() => !plusDisabled && setQty(idx, qty + 1)}
+                                    aria-label="Verhoog aantal"
+                                    disabled={plusDisabled}
+                                  >
+                                    +
+                                  </button>
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
                       ))}

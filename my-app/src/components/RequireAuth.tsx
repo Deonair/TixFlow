@@ -12,7 +12,7 @@ const RequireAuth = ({ children }: Props) => {
     let cancelled = false
     const check = async () => {
       try {
-        const res = await fetch('/api/users/me')
+        const res = await fetch('/api/users/me', { credentials: 'include' })
         if (!cancelled) setAuthed(res.ok)
       } catch {
         if (!cancelled) setAuthed(false)

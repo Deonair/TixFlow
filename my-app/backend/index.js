@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import eventRouter from './router/eventRouter.js';
 import organizerRouter from './router/organizerRouter.js';
 import paymentRouter from './router/paymentRouter.js';
@@ -16,20 +17,48 @@ import MongoStore from 'connect-mongo';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+// CORS configuratie zodat cookies (sessies) meegestuurd worden vanaf de frontend
+const appOrigin = process.env.APP_BASE_URL || 'http://localhost:5173';
+app.use(cors({ origin: appOrigin, credentials: true }));
 
 const PORT = process.env.PORT || 5050;
 
-// DB connectie: gebruik MONGO_URI uit env; geen localhost fallback in containers
-const uri = process.env.MONGO_URI ?? 'mongodb://localhost:27017/tixflow';
+// DB connectie met dev-only in-memory fallback
+let dbUri = process.env.MONGO_URI ?? 'mongodb://localhost:27017/tixflow';
+const useInMemory = process.env.USE_IN_MEMORY_MONGO === 'true';
+const isProd = process.env.NODE_ENV === 'production';
+const devDefaultMemory = !isProd && process.env.USE_IN_MEMORY_MONGO !== 'false';
+console.log('[BOOT] APP_BASE_URL:', appOrigin);
+console.log('[BOOT] USE_IN_MEMORY_MONGO:', useInMemory, 'NODE_ENV:', process.env.NODE_ENV);
+const connectOpts = { useNewUrlParser: true, useUnifiedTopology: true };
 
-// Verbinden met MongoDB
-mongoose.connect(uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+async function connectMongo() {
+  if (devDefaultMemory || useInMemory) {
+    console.warn('Using in-memory MongoDB for development');
+    const mongod = await MongoMemoryServer.create();
+    dbUri = mongod.getUri();
+    await mongoose.connect(dbUri, connectOpts);
+    console.log('Connected to in-memory MongoDB');
+    return;
+  }
+  try {
+    await mongoose.connect(dbUri, connectOpts);
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    if (!isProd) {
+      console.warn('Starting in-memory MongoDB (development fallback after connection error)...');
+      const mongod = await MongoMemoryServer.create();
+      dbUri = mongod.getUri();
+      await mongoose.connect(dbUri, connectOpts);
+      console.log('Connected to in-memory MongoDB');
+    } else {
+      throw err;
+    }
+  }
+}
+
+await connectMongo();
 
 
 // Vertrouw proxy (IIS) zodat secure cookies correct werken
@@ -37,16 +66,33 @@ app.set('trust proxy', 1);
 
 // Server-side sessies met Mongo store
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
+let sessionStore;
+try {
+  sessionStore = MongoStore.create({ mongoUrl: dbUri, ttl: 60 * 60 * 24 * 7 });
+} catch (e) {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd) {
+    console.error('MongoStore init failed in production:', e?.message);
+    // In productie willen we niet fallbacken naar MemoryStore; hard stoppen is veiliger
+    process.exit(1);
+  } else {
+    console.warn('MongoStore init failed, falling back to MemoryStore (development):', e?.message);
+    sessionStore = new session.MemoryStore();
+  }
+}
+const sameSite = (process.env.COOKIE_SAMESITE || 'lax');
+const secureEnv = process.env.COOKIE_SECURE;
+const secure = secureEnv === 'true' ? true : secureEnv === 'false' ? false : 'auto';
 app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: uri, ttl: 60 * 60 * 24 * 7 }),
+  store: sessionStore,
   proxy: true,
   cookie: {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: 'auto'
+    sameSite,
+    secure
   }
 }));
 
