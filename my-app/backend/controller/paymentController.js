@@ -27,7 +27,21 @@ export const createCheckoutSession = async (req, res) => {
       return res.status(400).json({ error: 'Ongeldige payload' })
     }
 
-    const appBase = process.env.APP_BASE_URL || 'http://localhost:5173'
+    // Normaliseer APP_BASE_URL zodat we altijd een geldige scheme hebben
+    const normalizeBaseUrl = (value) => {
+      let v = String(value || '').trim()
+      if (!v) return 'http://localhost:5173'
+      // Corrigeer veelvoorkomende typefout: 'ttp://' → 'http://'
+      v = v.replace(/^ttp:\/\//i, 'http://')
+      // Voeg https:// toe als er geen scheme is
+      if (!/^https?:\/\//i.test(v)) {
+        v = `https://${v}`
+      }
+      // Verwijder trailing slashes
+      v = v.replace(/\/+$/, '')
+      return v
+    }
+    const appBase = normalizeBaseUrl(process.env.APP_BASE_URL || 'http://localhost:5173')
     // Haal event en valideer capaciteit per ticket type
     const { default: Event } = await import('../models/eventModel.js')
     const { default: Ticket } = await import('../models/ticketModel.js')
