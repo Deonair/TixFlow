@@ -69,8 +69,30 @@ const EventCheckout = () => {
       if (!res.ok) throw new Error('Kon geen checkout sessie maken')
       const data = await res.json()
       const url: string | undefined = data.url as string | undefined
+      const sessionId: string | undefined = data.sessionId as string | undefined
       if (!url) throw new Error('Checkout URL ontbreekt')
-      window.location.assign(url)
+
+      // Officiële Stripe.js redirect — met veilige fallback naar sessie-URL
+      const pk = (import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined
+      if (pk && sessionId) {
+        try {
+          const stripe = await loadStripe(pk)
+          // Type narrowing kan op sommige setups haperen; gebruik any als guard
+          const res = await (stripe as any)?.redirectToCheckout?.({ sessionId })
+          if (res?.error) {
+            console.warn('redirectToCheckout error, val terug naar URL:', res.error)
+            window.location.assign(url)
+          } else {
+            // redirect gestart door Stripe.js; niets meer doen
+            return
+          }
+        } catch (e) {
+          console.warn('Stripe.js redirect faalde, fallback naar URL:', e)
+          window.location.assign(url)
+        }
+      } else {
+        window.location.assign(url)
+      }
     } catch (err) {
       console.error(err)
       const msg = err instanceof Error ? err.message : ''
