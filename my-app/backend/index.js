@@ -66,17 +66,18 @@ app.set('trust proxy', 1);
 
 // Server-side sessies met Mongo store
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
+const allowProdMemoryStore = process.env.SESSION_FALLBACK_MEMORY_ALLOWED === 'true';
 let sessionStore;
 try {
   sessionStore = MongoStore.create({ mongoUrl: dbUri, ttl: 60 * 60 * 24 * 7 });
 } catch (e) {
   const isProd = process.env.NODE_ENV === 'production';
-  if (isProd) {
+  if (isProd && !allowProdMemoryStore) {
     console.error('MongoStore init failed in production:', e?.message);
-    // In productie willen we niet fallbacken naar MemoryStore; hard stoppen is veiliger
+    console.error('Set SESSION_FALLBACK_MEMORY_ALLOWED=true to allow temporary MemoryStore fallback in production.');
     process.exit(1);
   } else {
-    console.warn('MongoStore init failed, falling back to MemoryStore (development):', e?.message);
+    console.warn('MongoStore init failed, falling back to MemoryStore:', e?.message);
     sessionStore = new session.MemoryStore();
   }
 }
