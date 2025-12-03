@@ -144,17 +144,14 @@ jobs:
             Write-Host "Backend .env already present; keeping server-side Secrets copy."
           }
 
-          if (-not (Test-Path $feEnvProdDst)) {
-            $contentFeLines = @(
-              "VITE_API_BASE_URL=$env:VITE_API_BASE_URL",
-              "VITE_STRIPE_PUBLISHABLE_KEY=$env:VITE_STRIPE_PUBLISHABLE_KEY"
-            )
-            $contentFe = [string]::Join("`n", $contentFeLines)
-            Set-Content -Path $feEnvProdDst -Value $contentFe -NoNewline
-            Write-Host "Generated frontend .env.production from GitHub Secrets."
-          } else {
-            Write-Host "Frontend .env.production already present; keeping server-side Secrets copy."
-          }
+          # Schrijf ALTIJD frontend .env.production uit Secrets (zorg dat nieuwe keys aanwezig zijn)
+          $contentFeLines = @(
+            "VITE_API_BASE_URL=$env:VITE_API_BASE_URL",
+            "VITE_STRIPE_PUBLISHABLE_KEY=$env:VITE_STRIPE_PUBLISHABLE_KEY"
+          )
+          $contentFe = [string]::Join("`n", $contentFeLines)
+          Set-Content -Path $feEnvProdDst -Value $contentFe -NoNewline
+          Write-Host "Frontend .env.production written from GitHub Secrets (forced)."
 
       - name: Install frontend dependencies (npm ci)
         shell: powershell
