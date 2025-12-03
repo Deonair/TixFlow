@@ -110,83 +110,8 @@ export const handleStripeWebhook = async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object
-        // Verrijk sessie met line items en sla order op
         const expanded = await s.checkout.sessions.retrieve(session.id, { expand: ['line_items'] })
-        const lineItems = expanded?.line_items?.data || []
-        const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
-        try {
-          const { default: Event } = await import('../models/eventModel.js')
-          const { default: Order } = await import('../models/orderModel.js')
-          const { default: Ticket } = await import('../models/ticketModel.js')
-          const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
-          if (!eventDoc) {
-            console.warn('Webhook: event niet gevonden voor slug', clientRef)
-            break
-          }
-          const items = lineItems.map(li => ({
-            name: li.description,
-            unitAmount: li.price?.unit_amount ?? 0,
-            quantity: li.quantity ?? 0,
-          }))
-          const orderDoc = await Order.create({
-            event: eventDoc._id,
-            items,
-            amountTotal: expanded.amount_total ?? 0,
-            currency: expanded.currency || 'eur',
-            customerEmail: expanded.customer_details?.email || expanded.customer_email || 'unknown@example.com',
-            stripeSessionId: expanded.id,
-            paymentIntentId: expanded.payment_intent ? String(expanded.payment_intent) : undefined,
-            status: 'paid',
-          })
-
-          // Genereer tickets op basis van bestelde aantallen
-          const tickets = []
-          for (const li of items) {
-            const qty = Math.max(0, Number(li.quantity) || 0)
-            for (let i = 0; i < qty; i++) {
-              // Kortere, unieke token (8 hex chars), met fallback bij botsing
-              let token = crypto.randomBytes(4).toString('hex')
-              try {
-                const { default: Ticket } = await import('../models/ticketModel.js')
-                let tries = 0
-                while (tries < 5) {
-                  const exists = await Ticket.findOne({ token }).lean()
-                  if (!exists) break
-                  token = crypto.randomBytes(4).toString('hex')
-                  tries++
-                }
-              } catch (tokErr) {
-                // Ga gewoon door; unieke index zal botsing voorkomen door fout
-              }
-              const ticket = await Ticket.create({
-                event: eventDoc._id,
-                order: orderDoc._id,
-                attendeeEmail: orderDoc.customerEmail,
-                ticketTypeName: li.name,
-                token,
-              })
-              tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
-            }
-          }
-
-          // Stuur tickets per e-mail naar de klant
-          try {
-            await sendTicketsEmail({
-              to: orderDoc.customerEmail,
-              event: { title: eventDoc.title, location: eventDoc.location, date: eventDoc.date },
-              tickets,
-              order: {
-                amountCents: orderDoc.amountTotal,
-                currency: orderDoc.currency || 'EUR',
-                items,
-              },
-            })
-          } catch (mailErr) {
-            console.error('E-mail verzenden mislukt:', mailErr)
-          }
-        } catch (saveErr) {
-          console.error('Order opslaan mislukt:', saveErr)
-        }
+        await processPaidSession(expanded)
         break
       }
       default:
@@ -201,3 +126,108 @@ export const handleStripeWebhook = async (req, res) => {
 }
 
 export default { createCheckoutSession, handleStripeWebhook }
+
+// --- Herbruikbare verwerkingslogica en fallback endpoint ---
+
+async function processPaidSession(expanded) {
+  try {
+    const lineItems = expanded?.line_items?.data || []
+    const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
+    const { default: Event } = await import('../models/eventModel.js')
+    const { default: Order } = await import('../models/orderModel.js')
+    const { default: Ticket } = await import('../models/ticketModel.js')
+
+    const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
+    if (!eventDoc) {
+      console.warn('Session verwerkt: event niet gevonden voor slug', clientRef)
+      return { status: 'no_event' }
+    }
+
+    // Idempotent: maak geen dubbele orders aan
+    const existing = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+    if (existing) {
+      return { status: 'already_processed', orderId: existing._id }
+    }
+
+    const items = lineItems.map(li => ({
+      name: li.description,
+      unitAmount: li.price?.unit_amount ?? 0,
+      quantity: li.quantity ?? 0,
+    }))
+
+    const orderDoc = await Order.create({
+      event: eventDoc._id,
+      items,
+      amountTotal: expanded.amount_total ?? 0,
+      currency: expanded.currency || 'eur',
+      customerEmail: expanded.customer_details?.email || expanded.customer_email || 'unknown@example.com',
+      stripeSessionId: expanded.id,
+      paymentIntentId: expanded.payment_intent ? String(expanded.payment_intent) : undefined,
+      status: 'paid',
+    })
+
+    const tickets = []
+    for (const li of items) {
+      const qty = Math.max(0, Number(li.quantity) || 0)
+      for (let i = 0; i < qty; i++) {
+        let token = crypto.randomBytes(4).toString('hex')
+        try {
+          let tries = 0
+          while (tries < 5) {
+            const exists = await Ticket.findOne({ token }).lean()
+            if (!exists) break
+            token = crypto.randomBytes(4).toString('hex')
+            tries++
+          }
+        } catch (_) { }
+        const ticket = await Ticket.create({
+          event: eventDoc._id,
+          order: orderDoc._id,
+          attendeeEmail: orderDoc.customerEmail,
+          ticketTypeName: li.name,
+          token,
+        })
+        tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
+      }
+    }
+
+    try {
+      await sendTicketsEmail({
+        to: orderDoc.customerEmail,
+        event: { title: eventDoc.title, location: eventDoc.location, date: eventDoc.date },
+        tickets,
+        order: {
+          amountCents: orderDoc.amountTotal,
+          currency: (orderDoc.currency || 'eur').toUpperCase(),
+          items,
+        },
+      })
+    } catch (mailErr) {
+      console.error('E-mail verzenden mislukt:', mailErr)
+    }
+
+    return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
+  } catch (err) {
+    console.error('processPaidSession error:', err)
+    return { status: 'error', error: err?.message || String(err) }
+  }
+}
+
+export const confirmCheckoutSession = async (req, res) => {
+  try {
+    const s = getStripe()
+    if (!s) return res.status(500).json({ error: 'Stripe is not configured' })
+    const { sessionId } = req.params
+    if (!sessionId) return res.status(400).json({ error: 'sessionId ontbreekt' })
+    const expanded = await s.checkout.sessions.retrieve(String(sessionId), { expand: ['line_items'] })
+    if (!expanded || expanded.status !== 'complete') {
+      // Stripe kan ook 'open' of 'expired' teruggeven; alleen bij complete verwerken
+      return res.status(400).json({ error: 'Sessiestatus niet voltooid', status: expanded?.status })
+    }
+    const result = await processPaidSession(expanded)
+    return res.json(result)
+  } catch (err) {
+    console.error('confirmCheckoutSession error:', err)
+    return res.status(500).json({ error: 'Kon sessie niet bevestigen' })
+  }
+}

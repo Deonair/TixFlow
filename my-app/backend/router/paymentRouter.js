@@ -1,10 +1,10 @@
 // backend/router/paymentRouter.js
-import { Router } from 'express'
-import { createCheckoutSession } from '../controller/paymentController.js'
+import express from 'express'
+import { createCheckoutSession, confirmCheckoutSession } from '../controller/paymentController.js'
 
-const router = Router()
+const router = express.Router()
 
 router.post('/checkout-session', createCheckoutSession)
+router.get('/confirm/:sessionId', confirmCheckoutSession)
 
 export default router
-
