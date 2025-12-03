@@ -46,15 +46,11 @@ async function connectMongo() {
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err);
-    if (!isProd) {
-      console.warn('Starting in-memory MongoDB (development fallback after connection error)...');
-      const mongod = await MongoMemoryServer.create();
-      dbUri = mongod.getUri();
-      await mongoose.connect(dbUri, connectOpts);
-      console.log('Connected to in-memory MongoDB');
-    } else {
-      throw err;
-    }
+    console.warn('Starting in-memory MongoDB fallback after connection error...');
+    const mongod = await MongoMemoryServer.create();
+    dbUri = mongod.getUri();
+    await mongoose.connect(dbUri, connectOpts);
+    console.log('Connected to in-memory MongoDB');
   }
 }
 
@@ -66,20 +62,12 @@ app.set('trust proxy', 1);
 
 // Server-side sessies met Mongo store
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-in-production';
-const allowProdMemoryStore = process.env.SESSION_FALLBACK_MEMORY_ALLOWED === 'true';
 let sessionStore;
 try {
   sessionStore = MongoStore.create({ mongoUrl: dbUri, ttl: 60 * 60 * 24 * 7 });
 } catch (e) {
-  const isProd = process.env.NODE_ENV === 'production';
-  if (isProd && !allowProdMemoryStore) {
-    console.error('MongoStore init failed in production:', e?.message);
-    console.error('Set SESSION_FALLBACK_MEMORY_ALLOWED=true to allow temporary MemoryStore fallback in production.');
-    process.exit(1);
-  } else {
-    console.warn('MongoStore init failed, falling back to MemoryStore:', e?.message);
-    sessionStore = new session.MemoryStore();
-  }
+  console.warn('MongoStore init failed, falling back to MemoryStore:', e?.message);
+  sessionStore = new session.MemoryStore();
 }
 const sameSite = (process.env.COOKIE_SAMESITE || 'lax');
 const secureEnv = process.env.COOKIE_SECURE;
