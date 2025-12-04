@@ -19,7 +19,15 @@ function EventDetail() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyTimeoutId, setCopyTimeoutId] = useState<number | null>(null);
-  const [stats, setStats] = useState<{ revenueCents: number; ticketsSold: number; ordersCount: number } | null>(null)
+  const [stats, setStats] = useState<{
+    revenueCents: number;
+    ticketsSold: number;
+    ordersCount: number;
+    attendance?: number;
+    capacityTotal?: number;
+    remaining?: number;
+    percentFilled?: number;
+  } | null>(null)
   const [orders, setOrders] = useState<Array<{ _id: string; customerEmail: string; amountTotal: number; createdAt: string }>>([])
 
   const isObjectId = /^[a-fA-F0-9]{24}$/.test(id || '');
@@ -51,11 +59,19 @@ function EventDetail() {
       try {
         const [statsRes, ordersRes] = await Promise.all([
           fetch(`/api/stats/event/${id}`),
-          fetch(`/api/orders?eventId=${id}&limit=10`),
+          fetch(`/api/orders?eventId=${id}&limit=5`),
         ])
         if (statsRes.ok) {
           const s = await statsRes.json()
-          if (!cancelled) setStats({ revenueCents: s.revenueCents ?? 0, ticketsSold: s.ticketsSold ?? 0, ordersCount: s.ordersCount ?? 0 })
+          if (!cancelled) setStats({
+            revenueCents: s.revenueCents ?? 0,
+            ticketsSold: s.ticketsSold ?? 0,
+            ordersCount: s.ordersCount ?? 0,
+            attendance: s.attendance ?? 0,
+            capacityTotal: s.capacityTotal ?? 0,
+            remaining: s.remaining ?? undefined,
+            percentFilled: s.percentFilled ?? undefined,
+          })
         } else if (!cancelled) {
           setStats(null)
         }
@@ -136,7 +152,7 @@ function EventDetail() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-2">
           <button
             onClick={() => navigate('/admin/events')}
             className="inline-flex items-center text-blue-600 hover:text-blue-800"
@@ -150,7 +166,7 @@ function EventDetail() {
           {isObjectId && (
             <button
               onClick={() => navigate(`/admin/event/${event?._id}/edit`)}
-              className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               Bewerk Event
             </button>
@@ -160,7 +176,7 @@ function EventDetail() {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-6">
             <h1 className="text-2xl font-bold mb-4">{event.title}</h1>
-            
+
             <div className="space-y-4">
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,7 +231,7 @@ function EventDetail() {
             {stats && (
               <div className="mt-8">
                 <h2 className="text-lg font-semibold mb-3">Statistieken</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <div className="text-xs text-gray-500">Omzet</div>
                     <div className="mt-1 text-2xl font-semibold text-gray-900">€ {(stats.revenueCents / 100).toFixed(2)}</div>
@@ -228,45 +244,21 @@ function EventDetail() {
                     <div className="text-xs text-gray-500">Bestellingen</div>
                     <div className="mt-1 text-2xl font-semibold text-gray-900">{stats.ordersCount}</div>
                   </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-xs text-gray-500">Ingecheckt</div>
+                    <div className="mt-1 text-2xl font-semibold text-gray-900">{stats.attendance} / {stats.capacityTotal}</div>
+                  </div>
                 </div>
               </div>
             )}
-
-            {/* Recente orders */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-900">Recente orders</h3>
-                <a
-                  href={`/api/orders/export?eventId=${id}`}
-                  className="text-sm inline-flex items-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-900 hover:bg-gray-100"
-                >
-                  Exporteer CSV
-                </a>
-              </div>
-              <div className="rounded-lg border border-gray-200 overflow-hidden mt-2">
-                {orders.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-600">Geen bestellingen</div>
-                ) : (
-                  <ul className="divide-y divide-gray-200">
-                    {orders.map(o => (
-                      <li key={o._id} className="px-4 py-3 flex items-center justify-between">
-                        <div className="text-sm text-gray-800">{o.customerEmail}</div>
-                        <div className="text-sm font-medium text-gray-900">€ {(o.amountTotal / 100).toFixed(2)}</div>
-                        <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
             {event.slug && (
               <div className="mt-8">
                 <h2 className="text-lg font-semibold mb-3">Publieke link</h2>
-                <div className="flex items-center gap-2">
+                <div className="w-full sm:w-auto grid grid-cols-2 gap-2">
                   <input
                     readOnly
                     value={`${window.location.origin}/event/${event.slug}`}
-                    className="w-full py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
+                    className="col-span-2 py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
                   />
                   <button
                     onClick={() => {
@@ -278,14 +270,48 @@ function EventDetail() {
                       setCopyTimeoutId(t);
                     }}
                     disabled={copied}
-                    className={`inline-flex items-center rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      copied
-                        ? 'bg-green-100 text-green-700 hover:bg-green-100 focus:ring-green-300'
-                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-300'
-                    }`}
+                    className={`inline-flex items-center rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${copied
+                      ? 'bg-green-100 text-green-700 hover:bg-green-100 focus:ring-green-300'
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-300'
+                      }`}
                   >
                     {copied ? 'Gekopieerd!' : 'Kopieer Link'}
                   </button>
+                </div>
+                {/* Recente orders onder Publieke link */}
+                <div className="mt-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium text-gray-900">Recente orders</h3>
+                    <div className="w-full sm:w-auto grid grid-cols-2 gap-2">
+                      <a
+                        href={`/api/orders/export?eventId=${id}`}
+                        className="text-sm inline-flex items-center justify-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-gray-900 hover:bg-gray-100"
+                      >
+                        Exporteer CSV
+                      </a>
+                      <button
+                        onClick={() => navigate(`/admin/event/${id}/orders`)}
+                        className="text-sm inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
+                      >
+                        Bekijk alle orders
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 overflow-hidden mt-2">
+                    {orders.length === 0 ? (
+                      <div className="p-4 text-sm text-gray-600">Geen bestellingen</div>
+                    ) : (
+                      <ul className="divide-y divide-gray-200">
+                        {orders.map(o => (
+                          <li key={o._id} className="px-4 py-3 flex items-center justify-between">
+                            <div className="text-sm text-gray-800">{o.customerEmail}</div>
+                            <div className="text-sm font-medium text-gray-900">€ {(o.amountTotal / 100).toFixed(2)}</div>
+                            <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

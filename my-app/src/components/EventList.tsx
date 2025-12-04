@@ -43,7 +43,7 @@ const EventList = () => {
       }
 
       const updatedEvent = await response.json();
-      setEvents(events.map(event => 
+      setEvents(events.map(event =>
         event._id === selectedEvent._id ? updatedEvent : event
       ));
       setError(null);
@@ -111,15 +111,15 @@ const EventList = () => {
   }
 
   // Filter events based on selected status
-  const filteredEvents = filterStatus === 'all' 
-    ? events 
+  const filteredEvents = filterStatus === 'all'
+    ? events
     : events.filter(event => event.status === filterStatus);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-2">
         <h1 className="text-2xl font-bold">Evenementen</h1>
-        <div className="flex items-center space-x-2">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2">
           <label htmlFor="filter-status" className="text-sm font-medium text-gray-700">
             Filter op status:
           </label>
@@ -127,7 +127,7 @@ const EventList = () => {
             id="filter-status"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as 'active' | 'inactive' | 'all')}
-            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="w-full sm:w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           >
             <option value="all">Alle events</option>
             <option value="active">Actieve events</option>
@@ -135,25 +135,24 @@ const EventList = () => {
           </select>
         </div>
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredEvents.map((event) => (
           <div
             key={event._id}
             className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
           >
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="flex justify-between items-start mb-2">
-                <h2 className="text-xl font-semibold">{event.title}</h2>
-                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                  event.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
+                <h2 className="text-lg sm:text-xl font-semibold">{event.title}</h2>
+                <span className={`px-2 py-1 text-[11px] sm:text-xs font-medium rounded ${event.status === 'active'
+                    ? 'bg-green-100 text-green-800'
                     : 'bg-gray-100 text-gray-800'
-                }`}>
+                  }`}>
                   {event.status === 'active' ? 'Actief' : 'Inactief'}
                 </span>
               </div>
-              <p className="text-gray-600 mb-2">
+              <p className="text-gray-600 mb-2 text-sm sm:text-base">
                 <span className="inline-block mr-2">
                   <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -161,7 +160,7 @@ const EventList = () => {
                 </span>
                 {formatDateTime(event.date)}
               </p>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 mb-4 text-sm sm:text-base">
                 <span className="inline-block mr-2">
                   <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -170,9 +169,9 @@ const EventList = () => {
                 </span>
                 {event.location}
               </p>
-              <div className="flex justify-between items-center mt-4">
+              <div className="grid grid-cols-2 gap-2 mt-4">
                 <button
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="inline-flex items-center justify-center rounded-lg bg-white border border-gray-200 px-3 py-2 text-blue-600 hover:text-blue-800 font-medium w-full"
                   onClick={() => navigate(`/admin/event/${event._id}`)}
                 >
                   Bekijk details →
@@ -180,7 +179,7 @@ const EventList = () => {
                 <select
                   value={event.status}
                   onChange={(e) => handleStatusChange(event, e.target.value as 'active' | 'inactive')}
-                  className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full sm:w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="active">Actief</option>
                   <option value="inactive">Inactief</option>

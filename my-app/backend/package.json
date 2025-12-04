@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "USE_IN_MEMORY_MONGO=true nodemon --experimental-specifier-resolution=node index.js"
+    "dev": "nodemon --experimental-specifier-resolution=node index.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

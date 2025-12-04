@@ -13,6 +13,7 @@ export const verifyTicket = async (req, res) => {
       redeemed: !!ticket.redeemed,
       ticketTypeName: ticket.ticketTypeName,
       attendeeEmail: ticket.attendeeEmail,
+      eventId: String(ticket.event || ''),
       event: event ? { title: event.title, location: event.location, date: event.date, slug: event.slug } : null,
     })
   } catch (error) {
@@ -36,4 +37,3 @@ export const redeemTicket = async (req, res) => {
 }
 
 export default { verifyTicket, redeemTicket }
-

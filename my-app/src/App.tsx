@@ -18,6 +18,7 @@ import AuthedToDashboard from './components/AuthedToDashboard'
 import UserSettings from './components/UserSettings'
 import CheckoutSuccess from './components/CheckoutSuccess'
 import CheckoutCancel from './components/CheckoutCancel'
+import OrdersList from './components/OrdersList'
 
 function App() {
   useEffect(() => {
@@ -42,6 +43,7 @@ function App() {
           <Route path="/admin/event/new" element={<RequireAuth><EventForm /></RequireAuth>} />
           <Route path="/admin/event/:id" element={<RequireAuth><EventDetail /></RequireAuth>} />
           <Route path="/admin/event/:id/edit" element={<RequireAuth><EventEdit /></RequireAuth>} />
+          <Route path="/admin/event/:id/orders" element={<RequireAuth><OrdersList /></RequireAuth>} />
           <Route path="/event/:slug" element={<EventLanding />} />
           <Route path="/event/:slug/checkout" element={<EventCheckout />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
