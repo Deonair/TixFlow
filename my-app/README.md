@@ -55,8 +55,12 @@ This app is part of TixFlow and runs a local Express/Mongoose backend with a Rea
 - Location: `my-app/backend`
 - Environment: create `my-app/backend/.env` with at least:
 ```
-MONGO_URI=mongodb://localhost:27017/tixflow
+MONGO_URI=mongodb://127.0.0.1:27017/tixflow
 PORT=5050
+NODE_ENV=development
+# Optional dev-only:
+USE_IN_MEMORY_MONGO=false
+DEV_IN_MEMORY_FALLBACK=false
 ```
 - Install & run:
 ```
@@ -65,6 +69,10 @@ npm install
 npm run dev
 ```
 - Health check: `curl http://localhost:5050/api/health` → `{ ok: true, db: 'connected' }`
+
+#### Fallback policy
+- In development kun je expliciet in‑memory gebruiken met `USE_IN_MEMORY_MONGO=true` of bij connectiefout `DEV_IN_MEMORY_FALLBACK=true`.
+- In productie wordt niet automatisch naar in‑memory gevallen. Gebruik een echte `MONGO_URI`; fallback kan alleen met `PROD_IN_MEMORY_FALLBACK=true` (ontraden).
 
 ### Frontend (React/Vite)
 - Location: `my-app`

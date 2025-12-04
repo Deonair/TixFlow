@@ -24,16 +24,28 @@ app.use(cors({ origin: appOrigin, credentials: true }));
 const PORT = process.env.PORT || 5050;
 
 // DB connectie met dev-only in-memory fallback
-let dbUri = process.env.MONGO_URI ?? 'mongodb://localhost:27017/tixflow';
-const useInMemory = process.env.USE_IN_MEMORY_MONGO === 'true';
 const isProd = process.env.NODE_ENV === 'production';
-const devDefaultMemory = !isProd && process.env.USE_IN_MEMORY_MONGO !== 'false';
+let dbUri = isProd
+  ? process.env.MONGO_URI
+  : (process.env.MONGO_URI ?? 'mongodb://127.0.0.1:27017/tixflow');
+const prodFallback = process.env.PROD_IN_MEMORY_FALLBACK === 'true';
+// Alleen als expliciet aangezet in dev gebruiken we in-memory
+const preferMemory = process.env.USE_IN_MEMORY_MONGO === 'true';
+const devFallback = process.env.DEV_IN_MEMORY_FALLBACK === 'true';
 console.log('[BOOT] APP_BASE_URL:', appOrigin);
-console.log('[BOOT] USE_IN_MEMORY_MONGO:', useInMemory, 'NODE_ENV:', process.env.NODE_ENV);
-const connectOpts = { useNewUrlParser: true, useUnifiedTopology: true };
+console.log('[BOOT] preferMemory:', preferMemory, 'NODE_ENV:', process.env.NODE_ENV);
+// Mongoose v6+/Mongo driver v4+: verwijder deprecated opties
+const connectOpts = { serverSelectionTimeoutMS: 3000 };
+
+// In productie: vereis expliciete MONGO_URI
+if (isProd && (!dbUri || dbUri.trim() === '')) {
+  console.error('Missing MONGO_URI in production; refusing to start without a real database.');
+  process.exit(1);
+}
 
 async function connectMongo() {
-  if (devDefaultMemory || useInMemory) {
+  // In dev: als expliciet aangezet, start in-memory
+  if (!isProd && preferMemory) {
     console.warn('Using in-memory MongoDB for development');
     const mongod = await MongoMemoryServer.create();
     dbUri = mongod.getUri();
@@ -46,11 +58,30 @@ async function connectMongo() {
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err);
-    console.warn('Starting in-memory MongoDB fallback after connection error...');
-    const mongod = await MongoMemoryServer.create();
-    dbUri = mongod.getUri();
-    await mongoose.connect(dbUri, connectOpts);
-    console.log('Connected to in-memory MongoDB');
+    // Val alleen terug op in-memory in development als expliciet toegestaan
+    if (!isProd) {
+      if (preferMemory || devFallback) {
+        console.warn('Starting in-memory MongoDB fallback after connection error (development)...');
+        const mongod = await MongoMemoryServer.create();
+        dbUri = mongod.getUri();
+        await mongoose.connect(dbUri, connectOpts);
+        console.log('Connected to in-memory MongoDB');
+      } else {
+        console.error('Development MongoDB connection failed; no fallback. Start je lokale mongod of zet DEV_IN_MEMORY_FALLBACK=true.');
+        process.exit(1);
+      }
+    } else {
+      if (prodFallback) {
+        console.warn('Production MongoDB failed; falling back to in-memory due to PROD_IN_MEMORY_FALLBACK=true');
+        const mongod = await MongoMemoryServer.create();
+        dbUri = mongod.getUri();
+        await mongoose.connect(dbUri, connectOpts);
+        console.log('Connected to in-memory MongoDB (production fallback)');
+      } else {
+        console.error('Production MongoDB connection failed; exiting without in-memory fallback');
+        process.exit(1);
+      }
+    }
   }
 }
 

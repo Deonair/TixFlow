@@ -9,14 +9,19 @@ Dit project draait lokaal met een Express/Mongoose backend en een React/Vite fro
 ## Configuratie
 Backend omgevingsvariabelen staan in `my-app/backend/.env`:
 ```
-DB_HOST=localhost
-DB_PORT=27017
-DB_NAME=tixflow
-MONGO_URI=mongodb://localhost:27017/tixflow
 PORT=5050
+NODE_ENV=development
+MONGO_URI=mongodb://127.0.0.1:27017/tixflow
+
+# Fallback beleid (dev-only)
+USE_IN_MEMORY_MONGO=false
+DEV_IN_MEMORY_FALLBACK=false
+# Productie noodgeval (meestal NIET gebruiken)
+PROD_IN_MEMORY_FALLBACK=false
 ```
-- Gebruik eventueel een andere `MONGO_URI` (bijv. Atlas) als je geen lokale Mongo wilt.
-- De backend gebruikt `MONGO_URI ?? 'mongodb://localhost:27017/tixflow'` als fallback.
+- In development kan je lokaal Mongo draaien (`127.0.0.1:27017`) of een Atlas URI gebruiken.
+- In productie wordt niet stilletjes naar in‑memory gevallen. Bij mislukte connectie zonder expliciete fallback stopt de app.
+- Zet in productie: `NODE_ENV=production` en een echte `MONGO_URI` (Atlas of managed instance).
 
 Frontend proxy naar backend staat in `my-app/vite.config.ts`:
 - Proxy: `/api` -> `http://localhost:5050` (fallback)
@@ -57,9 +62,17 @@ curl -X POST http://localhost:5050/api/events \
 ```
 
 ## Data bekijken in MongoDB Compass
-- Connect: `mongodb://localhost:27017/`
+- Connect: `mongodb://127.0.0.1:27017/`
 - Database: `tixflow`
 - Collectie: `events`
+
+## Fallback beleid samengevat
+- Development:
+  - Forceer in‑memory met `USE_IN_MEMORY_MONGO=true`.
+  - Val naar in‑memory bij connectiefout met `DEV_IN_MEMORY_FALLBACK=true`.
+- Productie:
+  - Vereist een echte `MONGO_URI`.
+  - Geen fallback, tenzij bewust `PROD_IN_MEMORY_FALLBACK=true` (ontraden).
 
 ## Zonder Docker
 Alle Dockerbestanden zijn verwijderd (compose, Dockerfiles, .dockerignore). Ontwikkeling en testen verlopen nu lokaal met npm-scripts.
