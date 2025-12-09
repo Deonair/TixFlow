@@ -73,7 +73,9 @@ export async function sendTicketsEmail({ to, event, tickets, order }) {
   const resend = getResend()
   if (!resend) throw new Error('RESEND_API_KEY ontbreekt')
 
-  const from = process.env.EMAIL_FROM || 'tickets@send.tixflow.nl'
+  const fromEmail = process.env.EMAIL_FROM || 'tickets@send.tixflow.nl'
+  const fromName = process.env.EMAIL_FROM_NAME || 'TixFlow'
+  const from = `${fromName} <${fromEmail}>`
   const normalizeBaseUrl = (value) => {
     let v = String(value || '').trim()
     if (!v) return 'http://localhost:5173'
