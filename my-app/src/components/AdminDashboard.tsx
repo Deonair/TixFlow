@@ -29,6 +29,7 @@ function AdminDashboard() {
   const [checkLoading, setCheckLoading] = useState(false)
   const [redeemMessage, setRedeemMessage] = useState<string | null>(null)
   const [isCheckinOpen, setIsCheckinOpen] = useState(false)
+  const [justRedeemed, setJustRedeemed] = useState(false) // nieuw
 
   useEffect(() => {
     let cancelled = false
@@ -170,6 +171,7 @@ function AdminDashboard() {
   const verifyTicket = async () => {
     setCheckLoading(true)
     setRedeemMessage(null)
+    setJustRedeemed(false) // nieuw: reset bij (her)verifiëren
     try {
       const res = await fetch(`/api/tickets/verify?token=${encodeURIComponent(checkToken)}`)
       const data = await res.json()
@@ -211,6 +213,7 @@ function AdminDashboard() {
         setCheckInfo(prev => prev ? { ...prev, redeemed: prev.redeemed ?? false } : prev)
       } else {
         setRedeemMessage('Ticket ingecheckt')
+        setJustRedeemed(true) // nieuw: markeer als net ingecheckt
         setCheckInfo(prev => prev ? { ...prev, redeemed: true } : prev)
       }
     } catch {
@@ -226,6 +229,7 @@ function AdminDashboard() {
     setCheckInfo(null)
     setRedeemMessage(null)
     setCheckLoading(false)
+    setJustRedeemed(false) // nieuw: reset bij sluiten
   }
 
   const copyPublicUrl = async (slug?: string): Promise<void> => {
@@ -506,7 +510,9 @@ function AdminDashboard() {
                     {checkInfo?.ok ? (
                       <>
                         <span>{checkInfo?.ticketTypeName || 'Ticket'}</span>
-                        {checkInfo?.redeemed ? <span className="ml-2 text-orange-600">(al ingecheckt)</span> : null}
+                        {checkInfo?.redeemed && !justRedeemed ? ( // aangepast
+                          <span className="ml-2 text-orange-600">(al ingecheckt)</span>
+                        ) : null}
                         {checkInfo?.eventTitle ? <span className="ml-2 text-gray-500">– {checkInfo?.eventTitle}</span> : null}
                       </>
                     ) : (
