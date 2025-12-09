@@ -6,6 +6,13 @@ type UserMe = { name: string; email: string; organization?: string }
 const UserSettings = () => {
   const [active, setActive] = useState<TabKey>('profile')
   const [user, setUser] = useState<UserMe | null>(null)
+  const [nameInput, setNameInput] = useState('')
+  const [emailInput, setEmailInput] = useState('')
+  const [pwInput, setPwInput] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveOk, setSaveOk] = useState(false)
   const [kvk, setKvk] = useState('')
   const [btw, setBtw] = useState('')
   const [kvkLocked, setKvkLocked] = useState(false)
@@ -15,10 +22,14 @@ const UserSettings = () => {
     let cancelled = false
     const loadMe = async () => {
       try {
-        const res = await fetch('/api/users/me')
+        const res = await fetch('/api/users/me', { credentials: 'include' })
         if (!res.ok) return
         const data = await res.json()
-        if (!cancelled) setUser(data)
+        if (!cancelled) {
+          setUser(data)
+          setNameInput(data?.name || '')
+          setEmailInput(data?.email || '')
+        }
       } catch {
         // negeer fouten hier; formulier blijft bruikbaar
       }
@@ -84,12 +95,50 @@ const UserSettings = () => {
                 <p className="mt-1 text-xs text-gray-500">Deze waarde is vergrendeld en kan niet aangepast worden.</p>
               </div>
 
-              <form className="mt-6 space-y-5" onSubmit={(e) => e.preventDefault()}>
+              <form
+                className="mt-6 space-y-5"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setSaveError(null)
+                  setSaveOk(false)
+                  setSaveLoading(true)
+                  try {
+                    const payload: any = {}
+                    if (nameInput && nameInput !== user?.name) payload.name = nameInput
+                    if (emailInput && emailInput !== user?.email) payload.email = emailInput
+                    if (pwInput || pwConfirm) {
+                      payload.password = pwInput
+                      payload.confirm = pwConfirm
+                    }
+                    const res = await fetch('/api/users/me', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify(payload)
+                    })
+                    if (!res.ok) {
+                      let data: any = null
+                      try { data = await res.json() } catch {}
+                      const msg = data?.message || 'Opslaan mislukt'
+                      setSaveError(msg)
+                      return
+                    }
+                    const updated = await res.json()
+                    setUser(updated)
+                    setSaveOk(true)
+                    setPwInput('')
+                    setPwConfirm('')
+                  } finally {
+                    setSaveLoading(false)
+                  }
+                }}
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Naam</label>
                   <input
                     type="text"
-                    placeholder={user?.name ? user.name : 'Voor- en achternaam'}
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -97,7 +146,8 @@ const UserSettings = () => {
                   <label className="block text-sm font-medium text-gray-700">E-mail</label>
                   <input
                     type="email"
-                    placeholder={user?.email ? user.email : 'jij@voorbeeld.nl'}
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -106,7 +156,8 @@ const UserSettings = () => {
                     <label className="block text-sm font-medium text-gray-700">Nieuw wachtwoord</label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      value={pwInput}
+                      onChange={(e) => setPwInput(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <p className="mt-1 text-xs text-gray-500">Het huidige wachtwoord wordt om veiligheidsredenen niet getoond.</p>
@@ -115,7 +166,8 @@ const UserSettings = () => {
                     <label className="block text-sm font-medium text-gray-700">Bevestig wachtwoord</label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      value={pwConfirm}
+                      onChange={(e) => setPwConfirm(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -123,11 +175,13 @@ const UserSettings = () => {
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
-                    className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700"
+                    disabled={saveLoading}
+                    className={`inline-flex items-center rounded-lg px-4 py-2.5 text-white ${saveLoading ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}
                   >
-                    Opslaan
+                    {saveLoading ? 'Opslaan…' : 'Opslaan'}
                   </button>
-                  <span className="text-sm text-gray-500">Wijzigingen worden lokaal gesimuleerd.</span>
+                  {saveOk && <span className="text-sm text-green-600">Opgeslagen</span>}
+                  {saveError && <span className="text-sm text-red-600">{saveError}</span>}
                 </div>
               </form>
             </div>
@@ -163,23 +217,13 @@ const UserSettings = () => {
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Contact voornaam</label>
-                    <input
-                      type="text"
-                      placeholder={user?.name ? user.name.split(' ')[0] : 'Voornaam'}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Contact achternaam</label>
-                    <input
-                      type="text"
-                      placeholder={user?.name ? (user.name.split(' ').slice(1).join(' ') || 'Achternaam') : 'Achternaam'}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contactnaam</label>
+                  <input
+                    type="text"
+                    placeholder={user?.name ? user.name : 'Naam van contactpersoon'}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
