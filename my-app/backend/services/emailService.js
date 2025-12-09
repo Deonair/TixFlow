@@ -182,7 +182,7 @@ export async function buildEmailHtmlAndAttachments({ event, tickets, order, base
 
             <table style="width:100%; border-collapse: collapse;">${ticketRows.join('')}</table>
             
-            <p style="margin-top:12px;color:#555">Elke PDF bevat de QR en verificatielink. Je kunt de PDFs doorsturen naar medebezoekers.</p>
+            <p style="margin-top:12px;color:#555">Elke PDF bevat de QR en Ticketcode. Je kunt de PDFs doorsturen naar medebezoekers.</p>
           </div>
           <div style="background:#f9fafb;color:#6b7280;padding:12px 20px;font-size:12px;">Verzonden door TixFlow</div>
         </div>
