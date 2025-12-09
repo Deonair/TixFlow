@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 type TabKey = 'profile' | 'payment'
-type UserMe = { name: string; email: string; organization?: string }
+type UserMe = { name: string; email: string; organization?: string; iban?: string; kvk?: string; btw?: string; billingContact?: string }
 
 const UserSettings = () => {
   const [active, setActive] = useState<TabKey>('profile')
@@ -17,6 +17,13 @@ const UserSettings = () => {
   const [btw, setBtw] = useState('')
   const [kvkLocked, setKvkLocked] = useState(false)
   const [btwLocked, setBtwLocked] = useState(false)
+  const [iban, setIban] = useState('')
+  const [orgPay, setOrgPay] = useState('')
+  const [contact, setContact] = useState('')
+  const [payLoading, setPayLoading] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  const [payOk, setPayOk] = useState(false)
+  const [payFieldErrors, setPayFieldErrors] = useState<Partial<Record<'organization' | 'iban' | 'kvk' | 'btw' | 'billingContact', string>>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -29,6 +36,13 @@ const UserSettings = () => {
           setUser(data)
           setNameInput(data?.name || '')
           setEmailInput(data?.email || '')
+          setIban(data?.iban || '')
+          setKvk(data?.kvk || '')
+          setBtw(data?.btw || '')
+          setOrgPay(data?.organization || '')
+          setContact(data?.billingContact || '')
+          setKvkLocked(!!data?.kvk)
+          setBtwLocked(!!data?.btw)
         }
       } catch {
         // negeer fouten hier; formulier blijft bruikbaar
@@ -103,7 +117,7 @@ const UserSettings = () => {
                   setSaveOk(false)
                   setSaveLoading(true)
                   try {
-                    const payload: any = {}
+                    const payload: Partial<{ name: string; email: string; password: string; confirm: string }> = {}
                     if (nameInput && nameInput !== user?.name) payload.name = nameInput
                     if (emailInput && emailInput !== user?.email) payload.email = emailInput
                     if (pwInput || pwConfirm) {
@@ -117,9 +131,11 @@ const UserSettings = () => {
                       body: JSON.stringify(payload)
                     })
                     if (!res.ok) {
-                      let data: any = null
-                      try { data = await res.json() } catch {}
-                      const msg = data?.message || 'Opslaan mislukt'
+                      let msg = 'Opslaan mislukt'
+                      try {
+                        const data = await res.json() as { message?: string }
+                        msg = data?.message || msg
+                      } catch (err) { void err }
                       setSaveError(msg)
                       return
                     }
@@ -188,42 +204,88 @@ const UserSettings = () => {
           )}
 
           {active === 'payment' && (
-            <div className="p-6 lg:p-8">
-              <h2 className="text-lg font-semibold text-gray-900">Betaalgegevens</h2>
-              <p className="mt-1 text-sm text-gray-600">IBAN en bedrijfsgegevens voor uitbetalingen.</p>
+          <div className="p-6 lg:p-8">
+            <h2 className="text-lg font-semibold text-gray-900">Betaalgegevens</h2>
+            <p className="mt-1 text-sm text-gray-600">IBAN en bedrijfsgegevens voor uitbetalingen.</p>
 
-              <form
-                className="mt-6 space-y-5"
-                onSubmit={(e) => {
-                  e.preventDefault()
+            <form
+              className="mt-6 space-y-5"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setPayError(null)
+                setPayFieldErrors({})
+                setPayOk(false)
+                setPayLoading(true)
+                try {
+                  const payload: Partial<{ organization: string; iban: string; kvk: string; btw: string; billingContact: string }> = {}
+                  if (iban) payload.iban = iban.replace(/\s+/g, '').toUpperCase()
+                  if (orgPay) payload.organization = orgPay
+                  if (contact) payload.billingContact = contact
+                  if (kvk) payload.kvk = kvk
+                  if (btw) payload.btw = btw
+                  const res = await fetch('/api/users/me', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                  })
+                  if (!res.ok) {
+                    let msg = 'Opslaan mislukt'
+                    try {
+                      const data = await res.json() as { message?: string; errors?: Partial<Record<'organization' | 'iban' | 'kvk' | 'btw' | 'billingContact', string>> }
+                      msg = data?.message || msg
+                      if (data?.errors) setPayFieldErrors(data.errors)
+                    } catch {}
+                    setPayError(msg)
+                    return
+                  }
+                  const updated = await res.json()
+                  setUser(updated)
+                  setIban(updated?.iban || '')
+                  setKvk(updated?.kvk || '')
+                  setBtw(updated?.btw || '')
+                  setOrgPay(updated?.organization || '')
+                  setContact(updated?.billingContact || '')
                   if (kvk) setKvkLocked(true)
                   if (btw) setBtwLocked(true)
-                }}
+                  setPayOk(true)
+                } finally {
+                  setPayLoading(false)
+                }
+              }}
               >
                 <div>
                   <label className="block text-sm font-medium text-gray-700">IBAN</label>
                   <input
                     type="text"
-                    placeholder="NL00 BANK 0123 4567 89"
+                    value={iban}
+                    onChange={(e) => setIban(e.target.value)}
+                    placeholder="NL00BANK0123456789"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {payFieldErrors.iban && <p className="mt-1 text-xs text-red-600">{payFieldErrors.iban}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Organisatie</label>
                   <input
                     type="text"
-                    defaultValue={user?.organization ?? ''}
+                    value={orgPay}
+                    onChange={(e) => setOrgPay(e.target.value)}
                     placeholder="Organisatie"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {payFieldErrors.organization && <p className="mt-1 text-xs text-red-600">{payFieldErrors.organization}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Contactnaam</label>
                   <input
                     type="text"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
                     placeholder={user?.name ? user.name : 'Naam van contactpersoon'}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {payFieldErrors.billingContact && <p className="mt-1 text-xs text-red-600">{payFieldErrors.billingContact}</p>}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -237,6 +299,7 @@ const UserSettings = () => {
                       className={`mt-1 w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${kvkLocked ? 'border-gray-300 bg-gray-50 text-gray-600 cursor-not-allowed' : 'border-gray-300'}`}
                     />
                     <p className="mt-1 text-xs text-gray-500">{kvkLocked ? 'Dit veld is vergrendeld.' : 'Wordt vergrendeld na opslaan.'}</p>
+                    {payFieldErrors.kvk && <p className="mt-1 text-xs text-red-600">{payFieldErrors.kvk}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">BTW-nummer</label>
@@ -249,20 +312,23 @@ const UserSettings = () => {
                       className={`mt-1 w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${btwLocked ? 'border-gray-300 bg-gray-50 text-gray-600 cursor-not-allowed' : 'border-gray-300'}`}
                     />
                     <p className="mt-1 text-xs text-gray-500">{btwLocked ? 'Dit veld is vergrendeld.' : 'Wordt vergrendeld na opslaan.'}</p>
+                    {payFieldErrors.btw && <p className="mt-1 text-xs text-red-600">{payFieldErrors.btw}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700"
-                  >
-                    Opslaan
-                  </button>
-                  <span className="text-sm text-gray-500">Velden zijn demovelden; opslag nog niet gekoppeld.</span>
-                </div>
-              </form>
-            </div>
-          )}
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={payLoading}
+                  className={`inline-flex items-center rounded-lg px-4 py-2.5 text-white ${payLoading ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                  {payLoading ? 'Opslaan…' : 'Opslaan'}
+                </button>
+                {payOk && <span className="text-sm text-green-600">Opgeslagen</span>}
+                {payError && <span className="text-sm text-red-600">{payError}</span>}
+              </div>
+            </form>
+          </div>
+        )}
         </div>
       </div>
     </section>
