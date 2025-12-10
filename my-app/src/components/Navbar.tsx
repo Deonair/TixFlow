@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import logo from '../assets/logo2.png';
 
 const Navbar = () => {
   const location = useLocation();
@@ -26,21 +27,21 @@ const Navbar = () => {
 
   return (
     <header className="flex flex-wrap sm:justify-start sm:flex-nowrap w-full bg-white text-sm py-3">
-      <nav className="max-w-[85rem] w-full mx-auto px-4 sm:flex sm:items-center sm:justify-between">
+      <nav className="max-w-[85rem] w-full mx-auto px-4 flex items-center justify-between">
         <Link
           to="/"
-          className="flex-none font-semibold text-xl text-black hover:text-blue-600 focus:outline-none focus:text-blue-600"
+          className="flex items-center gap-2 flex-none focus:outline-none"
         >
-          TixFlow
+          <img src={logo} alt="TixFlow" className="h-12 md:h-16 w-auto object-contain" />
         </Link>
-        <div className="flex flex-row items-center gap-5 mt-5 sm:justify-end sm:mt-0 sm:ps-5">
+        <div className="flex flex-row items-center gap-5 justify-end ps-5">
           {authed && (
             <>
               <Link
                 to="/admin"
                 className={`font-medium ${location.pathname === '/admin' || location.pathname === '/admin/dashboard'
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-blue-600'
+                  ? 'text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
                   } focus:outline-none`}
               >
                 Dashboard
@@ -106,8 +107,8 @@ const Navbar = () => {
               <Link
                 to={'/login'}
                 className={`font-medium ${location.pathname === '/login'
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-blue-600'
+                  ? 'text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
                   } focus:outline-none`}
               >
                 Login
@@ -115,8 +116,8 @@ const Navbar = () => {
               <Link
                 to={'/register'}
                 className={`font-medium ${location.pathname === '/register'
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-blue-600'
+                  ? 'text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
                   } focus:outline-none`}
               >
                 Registreer
