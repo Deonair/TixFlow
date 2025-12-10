@@ -10,6 +10,13 @@ const CheckoutSuccess = () => {
   useEffect(() => {
     const confirm = async () => {
       if (!sessionId) return
+      // Verwijder het session_id uit de URL voor privacy/esthetiek
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('session_id')
+        const cleaned = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '') + url.hash
+        window.history.replaceState({}, '', cleaned)
+      } catch { }
       setStatus('processing')
       try {
         const res = await fetch(`/api/payments/confirm/${encodeURIComponent(sessionId)}`)
@@ -33,9 +40,6 @@ const CheckoutSuccess = () => {
       <div className="max-w-xl mx-auto bg-white rounded-lg shadow p-6">
         <h1 className="text-xl font-semibold text-gray-900">Betaling geslaagd</h1>
         <p className="mt-2 text-sm text-gray-600">Bedankt voor je aankoop! Je order wordt bevestigd.</p>
-        {sessionId && (
-          <p className="mt-2 text-xs text-gray-500">Session ID: {sessionId}</p>
-        )}
         {status === 'processing' && (
           <p className="mt-2 text-sm text-gray-600">Bevestigen… Even geduld aub.</p>
         )}

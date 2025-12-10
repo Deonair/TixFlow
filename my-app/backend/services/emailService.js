@@ -35,14 +35,23 @@ async function generateTicketPdf({ event, ticket, baseUrl }) {
       doc.rect(50, 50, doc.page.width - 100, 40).fill(brandBlue)
       doc.fill('#ffffff').fontSize(18).text('TixFlow – Ticket', 60, 60, { align: 'left' })
       doc.fill('#000000')
-      doc.moveDown(0.5)
-      doc.fontSize(12).fillColor('#555').text(new Date(event.date).toLocaleString(), 50, 100)
+      // Verplaats datum/tijd-labels naar sectie tussen eventnaam en locatie (niet in header)
       doc.fillColor('#000')
       doc.moveDown(1)
 
       // Event info
+      const dt = event?.date ? new Date(event.date) : null
+      const dateStr = dt ? dt.toLocaleDateString('nl-NL') : (event?.date || '')
+      const timeStr = (event?.time
+        ? String(event.time)
+        : dt
+          ? dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+          : '')
+
       doc.fontSize(16).fillColor(brandBlack).text(event.title || 'Event', { continued: false })
-      if (event.location) doc.fontSize(12).text(`Locatie: ${event.location}`)
+      if (dateStr) doc.fontSize(12).fillColor('#111').text(`Datum: ${dateStr}`)
+      if (timeStr) doc.fontSize(12).fillColor('#111').text(`Tijd: ${timeStr}`)
+      if (event.location) doc.fontSize(12).fillColor('#111').text(`Locatie: ${event.location}`)
       doc.moveDown(0.5)
       doc.fontSize(12).text(`Tickettype: ${ticket.ticketTypeName}`)
       doc.fontSize(12).text(`Ticketcode: ${ticket.token}`)
@@ -120,6 +129,14 @@ export async function buildEmailHtmlAndAttachments({ event, tickets, order, base
     }
   }
 
+  const dt = event?.date ? new Date(event.date) : null
+  const dateStr = dt ? dt.toLocaleDateString('nl-NL') : (event?.date || '')
+  const timeStr = (event?.time
+    ? String(event.time)
+    : dt
+      ? dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+      : '')
+
   // Genereer per ticket een PDF-bijlage (betrouwbaar voor alle mailclients)
   const attachments = []
   const ticketRows = []
@@ -156,7 +173,7 @@ export async function buildEmailHtmlAndAttachments({ event, tickets, order, base
           </div>
           <div style="padding:18px 20px;background:#fff;">
             <p style="margin:0 0 6px 0;">Event: <strong>${event?.title || 'het event'}</strong></p>
-            <p style="margin:0 0 16px 0; color:#555;">${event?.location || ''} · ${event?.date ? new Date(event.date).toLocaleString() : ''}</p>
+            <p style="margin:0 0 16px 0; color:#555;">${dateStr ? `Datum: ${dateStr}` : ''}${timeStr ? ` · Tijd: ${timeStr}` : ''}${event?.location ? ` · ${event.location}` : ''}</p>
 
             ${order ? `
             <div style="margin:10px 0 16px 0;">
