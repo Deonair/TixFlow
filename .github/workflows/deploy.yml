@@ -311,6 +311,14 @@ jobs:
             if ($hostHeader) {
               try { New-WebBinding -Name $siteName -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
             }
+            # Zorg dat een default binding voor localhost bestaat
+            try {
+              $bindings = Get-WebBinding -Name $siteName -Protocol 'http' -ErrorAction SilentlyContinue
+              $hasDefault = $false
+              foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
+              if (-not $hasDefault) { New-WebBinding -Name $siteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop }
+              Write-Host 'Default http binding (*:80:) aanwezig of toegevoegd.'
+            } catch { Write-Host 'Kon default binding niet toevoegen (OK als reeds aanwezig).' }
             Restart-WebItem "IIS:\Sites\$siteName"
           } catch {
             Write-Host "Default Web Site niet gevonden; configureer/bewerk alternatieve site 'TixFlow'"
@@ -320,6 +328,14 @@ jobs:
               if ($hostHeader) {
                 try { New-WebBinding -Name $altSite -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
               }
+              # Zorg dat een default binding voor localhost bestaat
+              try {
+                $bindings = Get-WebBinding -Name $altSite -Protocol 'http' -ErrorAction SilentlyContinue
+                $hasDefault = $false
+                foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
+                if (-not $hasDefault) { New-WebBinding -Name $altSite -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop }
+                Write-Host 'Default http binding (*:80:) aanwezig of toegevoegd.'
+              } catch { Write-Host 'Kon default binding niet toevoegen (OK als reeds aanwezig).' }
               try { Start-WebSite -Name $altSite } catch {}
             } else {
               New-Item "IIS:\Sites\$altSite" -PhysicalPath $targetPath -Bindings @{ protocol = 'http'; bindingInformation = '*:80:' } | Out-Null
