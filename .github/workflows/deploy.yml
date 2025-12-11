@@ -354,6 +354,26 @@ jobs:
           Import-Module WebAdministration -ErrorAction SilentlyContinue
           Get-ChildItem IIS:\Sites | Select-Object Name, State, @{N='PhysicalPath';E={(Get-Item "IIS:\Sites\" + $_.Name).physicalPath }}
 
+      - name: "Diagnose: bindings & web.config pad"
+        shell: powershell
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          Write-Host '--- Bindings (http) ---'
+          Get-ChildItem IIS:\Sites | ForEach-Object {
+            $name = $_.Name
+            $bindings = Get-WebBinding -Name $name -Protocol 'http' -ErrorAction SilentlyContinue
+            foreach ($b in $bindings) { Write-Host ("{0} -> {1}" -f $name, $b.bindingInformation) }
+          }
+          Write-Host '--- web.config aanwezigheid ---'
+          $cfg = 'C:\TixFlow\wwwroot\web.config'
+          if (Test-Path $cfg) {
+            Write-Host ('web.config gevonden: ' + $cfg)
+            # Toon de proxyregel kort ter bevestiging
+            try { (Get-Content -Path $cfg -ErrorAction Stop | Select-String -Pattern 'API Proxy|http://localhost:5050') | ForEach-Object { Write-Host $_.Line } } catch {}
+          } else {
+            Write-Host ('web.config NIET gevonden op: ' + $cfg)
+          }
+
       - name: "Open Windows Firewall voor HTTP (:80) indien nodig"
         shell: powershell
         run: |
