@@ -1,117 +1,27 @@
-# React + TypeScript + Vite
+# TixFlow Frontend — React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dit is de frontend van TixFlow. De backend staat in `my-app/backend`.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Snel starten
 ```
-
-## TixFlow – Local Development (Backend & Frontend)
-
-This app is part of TixFlow and runs a local Express/Mongoose backend with a React/Vite frontend.
-
-### Prerequisites
-- Node.js 18+ and npm
-- MongoDB local (`mongodb://localhost:27017/tixflow`) or an Atlas connection string
-
-### Backend (Express/Mongoose)
-- Location: `my-app/backend`
-- Environment: create `my-app/backend/.env` with at least:
-```
-MONGO_URI=mongodb://127.0.0.1:27017/tixflow
-PORT=5050
-NODE_ENV=development
-# Optional dev-only:
-USE_IN_MEMORY_MONGO=false
-DEV_IN_MEMORY_FALLBACK=false
-```
-- Install & run:
-```
-cd my-app/backend
 npm install
 npm run dev
 ```
-- Health check: `curl http://localhost:5050/api/health` → `{ ok: true, db: 'connected' }`
+Frontend draait op `http://localhost:5173`. Zorg dat de backend op `http://localhost:5050` draait.
 
-#### Fallback policy
-- In development kun je expliciet in‑memory gebruiken met `USE_IN_MEMORY_MONGO=true` of bij connectiefout `DEV_IN_MEMORY_FALLBACK=true`.
-- In productie wordt niet automatisch naar in‑memory gevallen. Gebruik een echte `MONGO_URI`; fallback kan alleen met `PROD_IN_MEMORY_FALLBACK=true` (ontraden).
+## API proxy
+- Proxy: `/api` → `VITE_API_URL` (default `http://localhost:5050`), ingesteld in `vite.config.ts`.
+- Als je backend elders draait, zet `VITE_API_URL` in je omgeving.
 
-### Frontend (React/Vite)
-- Location: `my-app`
-- Install & run:
-```
-cd my-app
-npm install
-npm run dev
-```
-- Default dev URL: `http://localhost:5173`
-- API proxy: `/api` → `http://localhost:5050` (configured in `vite.config.ts`). Optionally set `VITE_API_URL` to point to a different backend.
+## Nuttige scripts
+- `npm run dev` — start de frontend
+- `npm run build` — productie build
+- `npm run preview` — preview van de build
+- `npm run dev:all` — start backend + frontend (uit root `my-app`)
+- `npm run dev:all:stripe` — alles + Stripe webhook listener (vereist Stripe CLI)
 
-For more details and quick commands, see the project root `README.md`.
+## Auth en cookies
+Frontend gebruikt `credentials: include` bij requests zoals `/api/users/me`. Controleer dat backend CORS `APP_BASE_URL` overeenkomt met je frontend‑URL.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Meer details
+Zie de root `README.md` voor een volledig overzicht (env, routes, testmethoden en tips).
