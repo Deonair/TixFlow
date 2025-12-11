@@ -316,7 +316,7 @@ jobs:
               $bindings = Get-WebBinding -Name $siteName -Protocol 'http' -ErrorAction SilentlyContinue
               $hasDefault = $false
               foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
-              if (-not $hasDefault) { New-WebBinding -Name $siteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop }
+              if (-not $hasDefault) { New-WebBinding -Name $siteName -Protocol 'http' -Port 80 -IPAddress '*' -ErrorAction Stop }
               Write-Host 'Default http binding (*:80:) aanwezig of toegevoegd.'
             } catch { Write-Host 'Kon default binding niet toevoegen (OK als reeds aanwezig).' }
             Restart-WebItem "IIS:\Sites\$siteName"
@@ -333,7 +333,7 @@ jobs:
                 $bindings = Get-WebBinding -Name $altSite -Protocol 'http' -ErrorAction SilentlyContinue
                 $hasDefault = $false
                 foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
-                if (-not $hasDefault) { New-WebBinding -Name $altSite -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop }
+                if (-not $hasDefault) { New-WebBinding -Name $altSite -Protocol 'http' -Port 80 -IPAddress '*' -ErrorAction Stop }
                 Write-Host 'Default http binding (*:80:) aanwezig of toegevoegd.'
               } catch { Write-Host 'Kon default binding niet toevoegen (OK als reeds aanwezig).' }
               try { Start-WebSite -Name $altSite } catch {}
@@ -358,12 +358,14 @@ jobs:
             $siteName = $s.Name
             $phys = (Get-Item "IIS:\Sites\$siteName").physicalPath
             $bindings = Get-WebBinding -Name $siteName -Protocol 'http' -ErrorAction SilentlyContinue
-            foreach ($b in $bindings) {
-              if ($b.bindingInformation -like '*:80:' -and $phys -ne $targetPath) {
-                Write-Host "Verwijder binding *:80: van site '$siteName' (pad=$phys)"
-                Remove-WebBinding -Name $siteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction SilentlyContinue
-              }
+          foreach ($b in $bindings) {
+            if ($b.bindingInformation -like '*:80:' -and $phys -ne $targetPath) {
+              Write-Host "Verwijder binding *:80: van site '$siteName' (pad=$phys)"
+              try {
+                Remove-WebBinding -Name $siteName -Protocol 'http' -BindingInformation $b.bindingInformation -ErrorAction SilentlyContinue
+              } catch { Write-Host "Remove-WebBinding failed: $($_.Exception.Message)" }
             }
+          }
           }
           $targetSite = ($sites | Where-Object { (Get-Item "IIS:\Sites\$($_.Name)").physicalPath -eq $targetPath } | Select-Object -First 1)
           if ($null -eq $targetSite) { Write-Host "Geen site met physicalPath $targetPath gevonden"; exit 1 }
@@ -373,7 +375,7 @@ jobs:
           foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
           if (-not $hasDefault) {
             Write-Host "Herstel binding *:80: op doelsite '$targetSiteName'"
-            New-WebBinding -Name $targetSiteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop
+            New-WebBinding -Name $targetSiteName -Protocol 'http' -Port 80 -IPAddress '*' -ErrorAction Stop
           } else { Write-Host "Doelsite '$targetSiteName' heeft *:80: binding" }
 
       - name: "IIS site status & pad"
