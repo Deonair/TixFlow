@@ -301,9 +301,11 @@ jobs:
             if ($u.Scheme) { $scheme = $u.Scheme }
             Write-Host ("APP_BASE_URL geparsed: scheme={0} host={1}" -f $scheme, $hostHeader)
           } catch { Write-Host "Kon APP_BASE_URL niet parsen; ga verder met standaard http-binding." }
+          $targetPath = 'C:\TixFlow\wwwroot'
+          $altSite = 'TixFlow'
           try {
             $site = Get-Item "IIS:\Sites\$siteName" -ErrorAction Stop
-            Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value 'C:\TixFlow\wwwroot'
+            Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $targetPath
             Write-Host ("IIS site '{0}' physicalPath gezet naar C:\\TixFlow\\wwwroot" -f $siteName)
             # Voeg host header binding toe indien bekend
             if ($hostHeader) {
@@ -311,12 +313,21 @@ jobs:
             }
             Restart-WebItem "IIS:\Sites\$siteName"
           } catch {
-            Write-Host ("Default Web Site niet gevonden; maak nieuwe site 'TixFlow' aan")
-            New-Item "IIS:\Sites\TixFlow" -PhysicalPath 'C:\TixFlow\wwwroot' -Bindings @{ protocol = 'http'; bindingInformation = '*:80:' } | Out-Null
-            if ($hostHeader) {
-              try { New-WebBinding -Name 'TixFlow' -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
+            Write-Host "Default Web Site niet gevonden; configureer/bewerk alternatieve site 'TixFlow'"
+            if (Test-Path "IIS:\Sites\$altSite") {
+              Set-ItemProperty "IIS:\Sites\$altSite" -Name physicalPath -Value $targetPath
+              Write-Host ("Site '{0}' physicalPath gezet naar {1}" -f $altSite, $targetPath)
+              if ($hostHeader) {
+                try { New-WebBinding -Name $altSite -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
+              }
+              try { Start-WebSite -Name $altSite } catch {}
+            } else {
+              New-Item "IIS:\Sites\$altSite" -PhysicalPath $targetPath -Bindings @{ protocol = 'http'; bindingInformation = '*:80:' } | Out-Null
+              if ($hostHeader) {
+                try { New-WebBinding -Name $altSite -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
+              }
+              Start-WebSite -Name $altSite
             }
-            Start-WebSite -Name 'TixFlow'
           }
           # Volledige IIS herstart (best effort)
           try { iisreset /restart | Out-Null } catch {}
