@@ -48,7 +48,6 @@ const Navbar = () => {
       window.removeEventListener('superadmin-auth-changed', handler);
     };
   }, []);
-  const isAdminRoute = location.pathname.startsWith('/admin')
   const isSuperRoute = location.pathname.startsWith('/superadmin')
   const isEventsIndex = location.pathname === '/admin/events'
   const isEventNew = location.pathname === '/admin/event/new'
@@ -65,13 +64,7 @@ const Navbar = () => {
           <img src={logo} alt="TixFlow" className="h-12 md:h-16 w-auto object-contain" />
         </Link>
         <div className="flex flex-row items-center gap-5 justify-end ps-5">
-          {/* Altijd toegang naar SuperAdmin; toont 'login' label indien niet ingelogd */}
-          <Link
-            to="/superadmin"
-            className={`font-medium ${location.pathname.startsWith('/superadmin') ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
-          >
-            {superAuthed ? 'SuperAdmin' : 'SuperAdmin login'}
-          </Link>
+          {/* SuperAdmin link verwijderd uit publieke navigatie */}
           {/* SuperAdmin menu alleen tonen op superadmin-routes wanneer ingelogd */}
           {isSuperRoute && superAuthed && (
             <div className="relative">
@@ -83,9 +76,9 @@ const Navbar = () => {
                   <Link to="/superadmin/events" onClick={() => setSuperMenuOpen(false)} className={`block px-4 py-2 text-sm ${location.pathname === '/superadmin/events' ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}>Events</Link>
                   <button
                     onClick={async () => {
-                      try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }); } catch { }
+                      try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }); } catch { console.warn('SuperAdmin logout request failed'); }
                       // Informeer app dat superadmin-auth is veranderd (uitgelogd)
-                      try { window.dispatchEvent(new Event('superadmin-auth-changed')); } catch { /* noop */ }
+                      window.dispatchEvent(new Event('superadmin-auth-changed'))
                       setSuperMenuOpen(false);
                       navigate('/superadmin');
                     }}
@@ -154,7 +147,7 @@ const Navbar = () => {
                 </Link>
                 <button
                   onClick={async () => {
-                    try { await fetch('/api/users/logout', { method: 'POST', credentials: 'include' }); } catch { }
+                    try { await fetch('/api/users/logout', { method: 'POST', credentials: 'include' }); } catch { console.warn('User logout request failed'); }
                     setAuthed(false);
                     navigate('/login');
                   }}

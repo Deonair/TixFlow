@@ -71,8 +71,9 @@ const Register = () => {
       })
       if (!res.ok) {
         let data: unknown = null
-        try { data = await res.json() } catch {}
-        const serverErrors = typeof data === 'object' && data && 'errors' in data ? (data as any).errors : {}
+        try { data = await res.json() } catch { console.warn('Kon serverfouten niet parsen') }
+        type ServerResp = { errors?: Partial<RegisterForm> }
+        const serverErrors = (data as ServerResp)?.errors || {}
         setErrors((prev) => ({ ...prev, ...serverErrors }))
         return
       }

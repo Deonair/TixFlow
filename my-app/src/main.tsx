@@ -11,7 +11,9 @@ import App from './App.tsx'
 try {
   document.documentElement.classList.remove('dark');
   document.documentElement.style.setProperty('color-scheme', 'light');
-} catch {}
+} catch {
+  console.warn('Kon light-mode forceren niet toepassen')
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

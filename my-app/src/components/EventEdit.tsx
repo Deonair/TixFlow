@@ -59,7 +59,7 @@ const EventEdit = () => {
         const existingTT = Array.isArray(data.ticketTypes) ? data.ticketTypes : [];
         setTicketTypes(
           existingTT.length
-            ? existingTT.map((tt: any) => ({
+            ? existingTT.map((tt: { name?: string; price?: number; capacity?: number }) => ({
               name: tt.name ?? '',
               price: String(tt.price ?? ''),
               capacity: String(tt.capacity ?? '')
@@ -158,8 +158,8 @@ const EventEdit = () => {
       }
 
       setIsSubmitted(true);
-    } catch (err: any) {
-      setErrors((prev) => ({ ...prev, title: (err.message || 'Er ging iets mis') }));
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, title: (err instanceof Error ? err.message : 'Er ging iets mis') }));
     } finally {
       setSubmitLoading(false);
     }

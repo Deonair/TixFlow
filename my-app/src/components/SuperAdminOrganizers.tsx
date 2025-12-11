@@ -51,7 +51,7 @@ export default function SuperAdminOrganizers() {
           const data = await orgRes.json()
           setItems(data)
         }
-      } catch (e) {
+      } catch {
         setError('Fout bij laden van gegevens')
       } finally {
         setLoading(false)
@@ -123,7 +123,7 @@ export default function SuperAdminOrganizers() {
       } finally {
         setLoading(false)
       }
-    } catch (e) {
+    } catch {
       setLoginError('Fout bij inloggen')
     } finally {
       setLoginLoading(false)

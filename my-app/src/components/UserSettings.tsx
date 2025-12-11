@@ -236,7 +236,9 @@ const UserSettings = () => {
                         const data = await res.json() as { message?: string; errors?: Partial<Record<'organization' | 'iban' | 'kvk' | 'btw' | 'billingContact', string>> }
                         msg = data?.message || msg
                         if (data?.errors) setPayFieldErrors(data.errors)
-                      } catch { }
+                      } catch {
+                        console.warn('Kon foutdetails niet lezen uit response')
+                      }
                       setPayError(msg)
                       return
                     }

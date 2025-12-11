@@ -247,7 +247,7 @@ function AdminDashboard() {
       ta.value = url
       document.body.appendChild(ta)
       ta.select()
-      try { document.execCommand('copy') } catch { }
+      try { document.execCommand('copy') } catch { console.warn('Clipboard fallback copy mislukt') }
       document.body.removeChild(ta)
     }
 

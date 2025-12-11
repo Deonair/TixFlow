@@ -77,7 +77,18 @@ function EventDetail() {
         }
         if (ordersRes.ok) {
           const o = await ordersRes.json()
-          const slim = Array.isArray(o) ? o.map((x: any) => ({ _id: String(x._id), customerEmail: x.customerEmail, amountTotal: x.amountTotal, createdAt: x.createdAt })) : []
+          type OrderRaw = { _id: unknown; customerEmail: string; amountTotal: number; createdAt: string }
+          const slim = Array.isArray(o)
+            ? o.map((x) => {
+              const r = x as Partial<OrderRaw>
+              return {
+                _id: String(r._id),
+                customerEmail: String(r.customerEmail ?? ''),
+                amountTotal: Number(r.amountTotal ?? 0),
+                createdAt: String(r.createdAt ?? '')
+              }
+            })
+            : []
           if (!cancelled) setOrders(slim)
         } else if (!cancelled) {
           setOrders([])

@@ -66,7 +66,7 @@ export default function SuperAdmin() {
           const ev = await eventsRes.json()
           setEvents(ev)
         }
-      } catch (e) {
+      } catch {
         setError('Fout bij laden van gegevens')
       } finally {
         setLoading(false)
@@ -185,11 +185,11 @@ export default function SuperAdmin() {
           setEvents(ev)
         }
         // Laat de Navbar weten dat de superadmin-auth status is veranderd
-        try { window.dispatchEvent(new Event('superadmin-auth-changed')) } catch { /* noop */ }
+        window.dispatchEvent(new Event('superadmin-auth-changed'))
       } finally {
         setLoading(false)
       }
-    } catch (e) {
+    } catch {
       setLoginError('Fout bij inloggen')
     } finally {
       setLoginLoading(false)

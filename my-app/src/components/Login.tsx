@@ -25,7 +25,7 @@ const Login = () => {
       }
       // Navigeer naar dashboard
       navigate('/admin')
-    } catch (err) {
+    } catch {
       setError('Fout tijdens inloggen')
     } finally {
       setLoading(false)

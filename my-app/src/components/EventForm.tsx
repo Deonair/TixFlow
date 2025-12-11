@@ -124,10 +124,10 @@ function EventForm() {
       setShareUrl(url);
       // succes
       setIsSubmitted(true);
-    } catch (err: any) {
+    } catch (err) {
       setErrors((prev) => ({
         ...prev,
-        title: (err.message || 'Er ging iets mis'),
+        title: (err instanceof Error ? err.message : 'Er ging iets mis'),
       }));
     }
   };

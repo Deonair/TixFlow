@@ -16,7 +16,9 @@ const CheckoutSuccess = () => {
         url.searchParams.delete('session_id')
         const cleaned = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '') + url.hash
         window.history.replaceState({}, '', cleaned)
-      } catch { }
+      } catch {
+        console.warn('Kon URL niet opschonen na checkout')
+      }
       setStatus('processing')
       try {
         const res = await fetch(`/api/payments/confirm/${encodeURIComponent(sessionId)}`)

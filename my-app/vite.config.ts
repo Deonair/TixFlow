@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Avoid direct `process` ref to prevent TS Node types error
-const API_URL = (globalThis as any)?.process?.env?.VITE_API_URL || 'http://localhost:5050';
+// Gebruik Vite env vars zonder `any`
+const API_URL = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_API_URL || 'http://localhost:5050';
 
 export default defineConfig({
   plugins: [react()],

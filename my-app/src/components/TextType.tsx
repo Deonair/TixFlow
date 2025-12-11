@@ -178,7 +178,7 @@ const TextType: React.FC<TextTypeProps> = ({
   return createElement(
     Component,
     {
-      ref: containerRef as React.Ref<any>,
+      ref: containerRef as React.Ref<HTMLDivElement>,
       className: `inline-block whitespace-pre-wrap tracking-tight ${className}`,
       ...props
     },

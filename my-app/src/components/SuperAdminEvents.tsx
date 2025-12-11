@@ -45,14 +45,14 @@ export default function SuperAdminEvents() {
         const data = await res.json()
         setEvents(data)
       }
-    } catch (e) {
+    } catch {
       setError('Fout bij laden van gegevens')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchEvents(onlyUpcoming) }, [])
+  useEffect(() => { fetchEvents(onlyUpcoming) }, [onlyUpcoming])
 
   const login = async () => {
     setLoginLoading(true)
@@ -71,7 +71,7 @@ export default function SuperAdminEvents() {
       }
       setNeedsLogin(false)
       fetchEvents(onlyUpcoming)
-    } catch (e) {
+    } catch {
       setLoginError('Fout bij inloggen')
     } finally {
       setLoginLoading(false)
