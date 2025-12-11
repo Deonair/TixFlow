@@ -253,10 +253,61 @@ jobs:
             Write-Host 'IIS URL Rewrite aanwezig.'
           }
 
+      - name: "Zorg dat IIS ARR (Application Request Routing) geïnstalleerd is"
+        shell: powershell
+        run: |
+          # ARR is vereist voor reverse proxy naar http://localhost:5050
+          $arrDll = Join-Path $env:WinDir 'System32\\inetsrv\\iisprox.dll'
+          if (-not (Test-Path $arrDll)) {
+            Write-Host 'IIS ARR niet gevonden; installeren...'
+            $msi = 'C:\TixFlow\arr.msi'
+            $candidates = @(
+              'https://download.microsoft.com/download/1/3/5/135B2B2E-0A53-4D93-BE3A-6E5A7A4E2ED0/requestRouter_x64.msi',
+              'https://download.microsoft.com/download/7/1/2/712F3355-DF34-4C56-A062-D46910F6C54B/requestRouter_x64.msi'
+            )
+            foreach ($u in $candidates) {
+              try {
+                Invoke-WebRequest -Uri $u -OutFile $msi -UseBasicParsing -TimeoutSec 60
+                Start-Process -FilePath 'msiexec.exe' -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait
+                Remove-Item $msi -Force -ErrorAction SilentlyContinue
+                break
+              } catch {
+                Write-Host ("Download/Install ARR kandidaat mislukt: {0}" -f $_.Exception.Message)
+              }
+            }
+            if (Test-Path $arrDll) { Write-Host 'ARR geïnstalleerd.' } else { Write-Host 'ARR installatie mogelijk mislukt; ga verder en controleer proxy health.' }
+          } else {
+            Write-Host 'IIS ARR aanwezig.'
+          }
+
       - name: "Publiceer IIS web.config (API proxy)"
         shell: powershell
         run: |
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
+
+      - name: "Configureer IIS site root naar C\\TixFlow\\wwwroot & herstart"
+        shell: powershell
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          $siteName = 'Default Web Site'
+          try {
+            $site = Get-Item "IIS:\Sites\$siteName" -ErrorAction Stop
+            Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value 'C:\TixFlow\wwwroot'
+            Write-Host ("IIS site '{0}' physicalPath gezet naar C:\\TixFlow\\wwwroot" -f $siteName)
+            Restart-WebItem "IIS:\Sites\$siteName"
+          } catch {
+            Write-Host ("Default Web Site niet gevonden; maak nieuwe site 'TixFlow' aan")
+            New-Item "IIS:\Sites\TixFlow" -PhysicalPath 'C:\TixFlow\wwwroot' -Bindings @{ protocol = 'http'; bindingInformation = '*:80:' } | Out-Null
+            Start-WebSite -Name 'TixFlow'
+          }
+          # Volledige IIS herstart (best effort)
+          try { iisreset /restart | Out-Null } catch {}
+
+      - name: "IIS site status & pad"
+        shell: powershell
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          Get-ChildItem IIS:\Sites | Select-Object Name, State, @{N='PhysicalPath';E={(Get-Item "IIS:\Sites\" + $_.Name).physicalPath }}
 
       # Install backend dependencies — redundant (handled below in PM2 start); removed
 
