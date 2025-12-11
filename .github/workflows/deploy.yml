@@ -348,6 +348,34 @@ jobs:
           # Volledige IIS herstart (best effort)
           try { iisreset /restart | Out-Null } catch {}
 
+      - name: "Reconcile IIS http bindings (alleen wwwroot site houdt *:80:)"
+        shell: powershell
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          $targetPath = 'C:\TixFlow\wwwroot'
+          $sites = Get-Website
+          foreach ($s in $sites) {
+            $siteName = $s.Name
+            $phys = (Get-Item "IIS:\Sites\$siteName").physicalPath
+            $bindings = Get-WebBinding -Name $siteName -Protocol 'http' -ErrorAction SilentlyContinue
+            foreach ($b in $bindings) {
+              if ($b.bindingInformation -like '*:80:' -and $phys -ne $targetPath) {
+                Write-Host "Verwijder binding *:80: van site '$siteName' (pad=$phys)"
+                Remove-WebBinding -Name $siteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction SilentlyContinue
+              }
+            }
+          }
+          $targetSite = ($sites | Where-Object { (Get-Item "IIS:\Sites\$($_.Name)").physicalPath -eq $targetPath } | Select-Object -First 1)
+          if ($null -eq $targetSite) { Write-Host "Geen site met physicalPath $targetPath gevonden"; exit 1 }
+          $targetSiteName = $targetSite.Name
+          $hasDefault = $false
+          $bindings = Get-WebBinding -Name $targetSiteName -Protocol 'http' -ErrorAction SilentlyContinue
+          foreach ($b in $bindings) { if ($b.bindingInformation -like '*:80:') { $hasDefault = $true } }
+          if (-not $hasDefault) {
+            Write-Host "Herstel binding *:80: op doelsite '$targetSiteName'"
+            New-WebBinding -Name $targetSiteName -Protocol 'http' -BindingInformation '*:80:' -ErrorAction Stop
+          } else { Write-Host "Doelsite '$targetSiteName' heeft *:80: binding" }
+
       - name: "IIS site status & pad"
         shell: powershell
         run: |
@@ -527,6 +555,12 @@ jobs:
           } catch {
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
           }
+
+      - name: "Extra proxy checks (127.0.0.1 en Host header)"
+        shell: powershell
+        run: |
+          try { $r1 = Invoke-WebRequest -Uri 'http://127.0.0.1/api/health' -TimeoutSec 5 -UseBasicParsing; Write-Host "127.0.0.1/api/health -> $($r1.StatusCode)" } catch { Write-Host "127.0.0.1 check failed: $($_.Exception.Message)" }
+          try { $r2 = Invoke-WebRequest -Uri 'http://127.0.0.1/api/health' -TimeoutSec 5 -UseBasicParsing -Headers @{ Host = 'tixflow.nl' }; Write-Host "Host=tixflow.nl -> $($r2.StatusCode)" } catch { Write-Host "Host header check failed: $($_.Exception.Message)" }
 
       - name: "Controleer publieke health (best effort)"
         env:
