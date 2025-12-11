@@ -194,9 +194,9 @@ app.get('/api/preview/pdf', async (_req, res) => {
   }
 })
 
-// app.get('/api/health', (_req, res) => {
-//   res.json({ ok: true });
-// });
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true })
+})
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
