@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 
 type Selection = { name: string; price: number; qty: number }

@@ -233,6 +233,26 @@ jobs:
           Remove-Item -Path "C:\TixFlow\wwwroot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\dist\*" -Destination "C:\TixFlow\wwwroot" -Recurse -Force
 
+      - name: "Zorg dat IIS URL Rewrite geïnstalleerd is"
+        shell: powershell
+        run: |
+          $rewriteDll = Join-Path $env:WinDir 'System32\\inetsrv\\rewrite.dll'
+          if (-not (Test-Path $rewriteDll)) {
+            Write-Host 'IIS URL Rewrite niet gevonden; installeren...'
+            $msi = 'C:\TixFlow\urlrewrite.msi'
+            $url = 'https://download.microsoft.com/download/D/D/9/DD9DE166-59A4-4E23-8E1B-01FD45342CF3/rewrite_amd64_en-US.msi'
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing -TimeoutSec 60
+              Start-Process -FilePath 'msiexec.exe' -ArgumentList "/i `"$msi`" /quiet /norestart" -Wait
+              Remove-Item $msi -Force -ErrorAction SilentlyContinue
+              Write-Host 'IIS URL Rewrite geïnstalleerd.'
+            } catch {
+              Write-Host ("Installatie van URL Rewrite faalde: {0}" -f $_.Exception.Message)
+            }
+          } else {
+            Write-Host 'IIS URL Rewrite aanwezig.'
+          }
+
       - name: "Publiceer IIS web.config (API proxy)"
         shell: powershell
         run: |
