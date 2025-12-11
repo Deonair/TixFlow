@@ -586,7 +586,16 @@ jobs:
           }
           if (-not $ok) {
             Write-Host 'Public health still failing (non-blocking). DNS & binding diagnose:'
-            try { Resolve-DnsName -Name ($base -replace '^https?://','').TrimEnd('/') -ErrorAction Stop | Format-Table Name, Type, IPAddress } catch { Write-Host 'DNS resolve failed or not applicable.' }
+            try {
+              $name = ($base -replace '^https?://','').TrimEnd('/');
+              $res = Resolve-DnsName -Name $name -ErrorAction Stop
+              Write-Host ("DNS resolved: {0} record(s)" -f ($res.Count))
+              if ($env:ENABLE_VERBOSE_DIAG -eq 'true') {
+                $res | Format-Table Name, Type, IPAddress | Out-String | Write-Host
+              } else {
+                $res | Select-Object Name, Type | Format-Table | Out-String | Write-Host
+              }
+            } catch { Write-Host 'DNS resolve failed or not applicable.' }
           }
 
       - name: "Test: Frontend lint"
