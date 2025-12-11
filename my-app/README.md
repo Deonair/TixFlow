@@ -35,6 +35,8 @@ SUPERADMIN_EMAIL=jeemail@example.com
 SUPERADMIN_PASSWORD=sterkwachtwoord
 # of whitelist alternatief (comma‑separated)
 SUPERADMIN_EMAILS=admin1@example.com,admin2@example.com
+# optioneel: whitelist per ID (Mongo ObjectId, comma‑separated)
+SUPERADMIN_IDS=
 # Moet overeenkomen met je frontend dev‑URL (poort kan 5173 of 5174 zijn)
 APP_BASE_URL=http://localhost:5174
 ```
@@ -54,3 +56,4 @@ Troubleshooting
 Opmerkingen
 - Commit nooit je `.env`; gebruik `my-app/backend/.env.example` als referentie.
 - In productie zet je `APP_BASE_URL` op je echte domein en zorg je voor HTTPS.
+- `SUPERADMIN_EMAILS` en `SUPERADMIN_IDS` zijn optioneel; laat ze leeg om whitelisting uit te zetten. Ze worden niet automatisch door de server ingevuld.
