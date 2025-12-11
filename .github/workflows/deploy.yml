@@ -114,8 +114,8 @@ jobs:
           EMAIL_FROM: "${{ secrets.EMAIL_FROM }}"
           STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
           STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
-          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL }}"
-          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD }}"
+          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL || 'test@tixflow.nl' }}"
+          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD || 'Wachtwoord' }}"
           SUPERADMIN_EMAILS: "${{ secrets.SUPERADMIN_EMAILS }}"
           SUPERADMIN_IDS: "${{ secrets.SUPERADMIN_IDS }}"
           VITE_API_BASE_URL: "${{ secrets.VITE_API_BASE_URL }}"
@@ -405,13 +405,10 @@ jobs:
       - name: "Test: SuperAdmin login/logout (direct & via proxy)"
         shell: powershell
         env:
-          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL }}"
-          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD }}"
+          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL || 'test@tixflow.nl' }}"
+          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD || 'Wachtwoord' }}"
         run: |
-          if (-not $env:SUPERADMIN_EMAIL -or -not $env:SUPERADMIN_PASSWORD) {
-            Write-Host 'SuperAdmin secrets ontbreken; sla deze test stap over.'
-            exit 0
-          }
+          # Gebruik fallback testcredentials als secrets ontbreken
           # Direct backend sessie
           $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
           $loginBody = @{ email = $env:SUPERADMIN_EMAIL; password = $env:SUPERADMIN_PASSWORD } | ConvertTo-Json
