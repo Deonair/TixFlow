@@ -286,18 +286,36 @@ jobs:
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
 
       - name: "Configureer IIS site root naar C\\TixFlow\\wwwroot & herstart"
+        env:
+          APP_BASE_URL: "${{ secrets.APP_BASE_URL }}"
         shell: powershell
         run: |
           Import-Module WebAdministration -ErrorAction SilentlyContinue
           $siteName = 'Default Web Site'
+          # Haal host uit APP_BASE_URL voor host header binding
+          $hostHeader = $null
+          $scheme = 'http'
+          try {
+            $u = [Uri]$env:APP_BASE_URL
+            if ($u.Host) { $hostHeader = $u.Host }
+            if ($u.Scheme) { $scheme = $u.Scheme }
+            Write-Host ("APP_BASE_URL geparsed: scheme={0} host={1}" -f $scheme, $hostHeader)
+          } catch { Write-Host "Kon APP_BASE_URL niet parsen; ga verder met standaard http-binding." }
           try {
             $site = Get-Item "IIS:\Sites\$siteName" -ErrorAction Stop
             Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value 'C:\TixFlow\wwwroot'
             Write-Host ("IIS site '{0}' physicalPath gezet naar C:\\TixFlow\\wwwroot" -f $siteName)
+            # Voeg host header binding toe indien bekend
+            if ($hostHeader) {
+              try { New-WebBinding -Name $siteName -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
+            }
             Restart-WebItem "IIS:\Sites\$siteName"
           } catch {
             Write-Host ("Default Web Site niet gevonden; maak nieuwe site 'TixFlow' aan")
             New-Item "IIS:\Sites\TixFlow" -PhysicalPath 'C:\TixFlow\wwwroot' -Bindings @{ protocol = 'http'; bindingInformation = '*:80:' } | Out-Null
+            if ($hostHeader) {
+              try { New-WebBinding -Name 'TixFlow' -Protocol 'http' -Port 80 -HostHeader $hostHeader -ErrorAction Stop } catch { Write-Host 'Host header binding toevoegen faalde of bestaat al (OK).' }
+            }
             Start-WebSite -Name 'TixFlow'
           }
           # Volledige IIS herstart (best effort)
@@ -308,6 +326,17 @@ jobs:
         run: |
           Import-Module WebAdministration -ErrorAction SilentlyContinue
           Get-ChildItem IIS:\Sites | Select-Object Name, State, @{N='PhysicalPath';E={(Get-Item "IIS:\Sites\" + $_.Name).physicalPath }}
+
+      - name: "Open Windows Firewall voor HTTP (:80) indien nodig"
+        shell: powershell
+        run: |
+          try {
+            $rule = Get-NetFirewallRule -DisplayName 'TixFlow_HTTP_80' -ErrorAction SilentlyContinue
+            if (-not $rule) {
+              New-NetFirewallRule -DisplayName 'TixFlow_HTTP_80' -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Any | Out-Null
+              Write-Host 'Firewallregel toegevoegd voor inbound TCP 80.'
+            } else { Write-Host 'Firewallregel voor TCP 80 bestaat al.' }
+          } catch { Write-Host 'Firewall configuratie niet gelukt (mogelijk beperkte rechten); ga verder.' }
 
       # Install backend dependencies — redundant (handled below in PM2 start); removed
 
@@ -453,16 +482,28 @@ jobs:
           }
 
       - name: "Controleer publieke health (best effort)"
+        env:
+          APP_BASE_URL: "${{ secrets.APP_BASE_URL }}"
         shell: powershell
         run: |
-          try {
-            $url = "${{ secrets.APP_BASE_URL }}/api/health"
-            Write-Host ("Checking public URL: {0}" -f $url)
-            $resp = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec 6 -UseBasicParsing
-            Write-Host ("Public health status: {0}" -f $resp.StatusCode)
-            try { $json = $resp.Content | ConvertFrom-Json; Write-Host ($json | ConvertTo-Json) } catch { Write-Host "Public response not JSON" }
-          } catch {
-            Write-Host ("Public health check failed (non-blocking): {0}" -f $_.Exception.Message)
+          $base = $env:APP_BASE_URL
+          $urls = @()
+          if ($base) { $urls += ("{0}/api/health" -f $base) }
+          if ($base -and $base.StartsWith('https')) { $urls += (($base -replace '^https','http') + '/api/health') }
+          Write-Host ('Trying public health URLs: ' + ($urls -join ', '))
+          $ok = $false
+          foreach ($u in $urls) {
+            try {
+              Write-Host ("Checking public URL: {0}" -f $u)
+              $resp = Invoke-WebRequest -Uri $u -Method Get -TimeoutSec 10 -UseBasicParsing
+              Write-Host ("Public health status: {0}" -f $resp.StatusCode)
+              try { $json = $resp.Content | ConvertFrom-Json; Write-Host ($json | ConvertTo-Json) } catch { Write-Host "Public response not JSON" }
+              $ok = $true; break
+            } catch { Write-Host ("Public health attempt failed: {0}" -f $_.Exception.Message) }
+          }
+          if (-not $ok) {
+            Write-Host 'Public health still failing (non-blocking). DNS & binding diagnose:'
+            try { Resolve-DnsName -Name ($base -replace '^https?://','').TrimEnd('/') -ErrorAction Stop | Format-Table Name, Type, IPAddress } catch { Write-Host 'DNS resolve failed or not applicable.' }
           }
 
       - name: "Test: Frontend lint"
