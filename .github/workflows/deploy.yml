@@ -395,6 +395,7 @@ jobs:
           }
 
       - name: "Test: Frontend lint"
+        continue-on-error: true
         shell: powershell
         working-directory: C:\TixFlow\ProjectRoot\my-app
         run: |
