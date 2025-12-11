@@ -9,6 +9,7 @@ import organizerRouter from './router/organizerRouter.js';
 import paymentRouter from './router/paymentRouter.js';
 import orderRouter from './router/orderRouter.js';
 import ticketRouter from './router/ticketRouter.js';
+import adminRouter from './router/adminRouter.js';
 import { handleStripeWebhook } from './controller/paymentController.js';
 import { buildEmailHtmlAndAttachments } from './services/emailService.js';
 import session from 'express-session';
@@ -130,7 +131,9 @@ app.use('/api/payments', paymentRouter);
 // Orders & stats
 app.use('/api', orderRouter);
 // Tickets verify/redeem
-app.use('/api', ticketRouter);
+// Admin (superadmin only)
+// Superadmin routes
+app.use('/api/admin', adminRouter);
 
 // Health endpoint voor snelle check
 app.get('/api/health', (_req, res) => {

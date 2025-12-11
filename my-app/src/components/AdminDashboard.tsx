@@ -59,11 +59,13 @@ function AdminDashboard() {
     const total = events.length
     const live = events.filter(e => {
       const dt = new Date(e.date)
-      return !isNaN(dt.getTime()) && isSameDay(dt, now)
+      const isActive = (e.status ?? 'active') === 'active'
+      return isActive && !isNaN(dt.getTime()) && isSameDay(dt, now)
     }).length
     const upcoming = events.filter(e => {
       const dt = new Date(e.date)
-      return !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
+      const isActive = (e.status ?? 'active') === 'active'
+      return isActive && !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
     }).length
     return { total, upcoming, live }
   }, [events])
@@ -109,7 +111,8 @@ function AdminDashboard() {
     return events
       .filter(e => {
         const dt = new Date(e.date)
-        return !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
+        const isActive = (e.status ?? 'active') === 'active'
+        return isActive && !isNaN(dt.getTime()) && dt.getTime() > now.getTime() && !isSameDay(dt, now)
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
   }, [events])
@@ -124,7 +127,8 @@ function AdminDashboard() {
 
     const todayEvents = events.filter(e => {
       const dt = new Date(e.date)
-      return !isNaN(dt.getTime()) && isSameDay(dt, now)
+      const isActive = (e.status ?? 'active') === 'active'
+      return isActive && !isNaN(dt.getTime()) && isSameDay(dt, now)
     })
 
     if (todayEvents.length === 0) return undefined

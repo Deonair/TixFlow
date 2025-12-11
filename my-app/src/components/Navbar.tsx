@@ -6,6 +6,8 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [authed, setAuthed] = useState(false);
+  const [superAuthed, setSuperAuthed] = useState(false);
+  const [superMenuOpen, setSuperMenuOpen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
@@ -15,11 +17,39 @@ const Navbar = () => {
       } catch {
         if (!cancelled) setAuthed(false);
       }
+      try {
+        const resAdmin = await fetch('/api/admin/me', { credentials: 'include' });
+        if (!cancelled) setSuperAuthed(resAdmin.ok);
+      } catch {
+        if (!cancelled) setSuperAuthed(false);
+      }
     };
     check();
+    // Sluit superadmin menu bij routewissel
+    setSuperMenuOpen(false);
     return () => { cancelled = true; };
   }, [location.pathname]);
+
+  // Luister naar expliciete auth-verander events, zodat Navbar direct bijwerkt na login
+  useEffect(() => {
+    let cancelled = false;
+    const handler = async () => {
+      if (cancelled) return;
+      try {
+        const resAdmin = await fetch('/api/admin/me', { credentials: 'include' });
+        if (!cancelled) setSuperAuthed(resAdmin.ok);
+      } catch {
+        if (!cancelled) setSuperAuthed(false);
+      }
+    };
+    window.addEventListener('superadmin-auth-changed', handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('superadmin-auth-changed', handler);
+    };
+  }, []);
   const isAdminRoute = location.pathname.startsWith('/admin')
+  const isSuperRoute = location.pathname.startsWith('/superadmin')
   const isEventsIndex = location.pathname === '/admin/events'
   const isEventNew = location.pathname === '/admin/event/new'
   const eventsActive = isEventsIndex || isEventNew || location.pathname.startsWith('/admin/event/')
@@ -35,7 +65,39 @@ const Navbar = () => {
           <img src={logo} alt="TixFlow" className="h-12 md:h-16 w-auto object-contain" />
         </Link>
         <div className="flex flex-row items-center gap-5 justify-end ps-5">
-          {authed && (
+          {/* Altijd toegang naar SuperAdmin; toont 'login' label indien niet ingelogd */}
+          <Link
+            to="/superadmin"
+            className={`font-medium ${location.pathname.startsWith('/superadmin') ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+          >
+            {superAuthed ? 'SuperAdmin' : 'SuperAdmin login'}
+          </Link>
+          {/* SuperAdmin menu alleen tonen op superadmin-routes wanneer ingelogd */}
+          {isSuperRoute && superAuthed && (
+            <div className="relative">
+              <button type="button" onClick={() => setSuperMenuOpen(o => !o)} className="font-medium text-gray-600 hover:text-blue-600">Menu</button>
+              {superMenuOpen && (
+                <div className="absolute right-0 top-full min-w-[12rem] rounded-lg border border-gray-200 bg-white shadow-md z-50">
+                  <Link to="/superadmin" onClick={() => setSuperMenuOpen(false)} className={`block px-4 py-2 text-sm ${(location.pathname === '/superadmin' || location.pathname === '/superadmin/dashboard') ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}>Dashboard</Link>
+                  <Link to="/superadmin/organizers" onClick={() => setSuperMenuOpen(false)} className={`block px-4 py-2 text-sm ${location.pathname === '/superadmin/organizers' ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}>Organizers</Link>
+                  <Link to="/superadmin/events" onClick={() => setSuperMenuOpen(false)} className={`block px-4 py-2 text-sm ${location.pathname === '/superadmin/events' ? 'text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}>Events</Link>
+                  <button
+                    onClick={async () => {
+                      try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }); } catch { }
+                      // Informeer app dat superadmin-auth is veranderd (uitgelogd)
+                      try { window.dispatchEvent(new Event('superadmin-auth-changed')); } catch { /* noop */ }
+                      setSuperMenuOpen(false);
+                      navigate('/superadmin');
+                    }}
+                    className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left"
+                  >
+                    SuperAdmin logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {authed && !isSuperRoute && (
             <>
               <Link
                 to="/admin"
@@ -73,7 +135,7 @@ const Navbar = () => {
               </div>
             </>
           )}
-          {authed ? (
+          {authed && !isSuperRoute ? (
             <div className="relative group">
               <button
                 type="button"
@@ -102,7 +164,7 @@ const Navbar = () => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : (!isSuperRoute && (
             <>
               <Link
                 to={'/login'}
@@ -123,7 +185,7 @@ const Navbar = () => {
                 Registreer
               </Link>
             </>
-          )}
+          ))}
         </div>
       </nav>
     </header>

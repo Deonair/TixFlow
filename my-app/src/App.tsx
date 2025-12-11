@@ -19,6 +19,9 @@ import UserSettings from './components/UserSettings'
 import CheckoutSuccess from './components/CheckoutSuccess'
 import CheckoutCancel from './components/CheckoutCancel'
 import OrdersList from './components/OrdersList'
+import SuperAdmin from './components/SuperAdmin'
+import SuperAdminOrganizers from './components/SuperAdminOrganizers'
+import SuperAdminEvents from './components/SuperAdminEvents'
 
 function App() {
   useEffect(() => {
@@ -48,6 +51,9 @@ function App() {
           <Route path="/event/:slug/checkout" element={<EventCheckout />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+          <Route path="/superadmin" element={<SuperAdmin />} />
+          <Route path="/superadmin/organizers" element={<SuperAdminOrganizers />} />
+          <Route path="/superadmin/events" element={<SuperAdminEvents />} />
           <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
           <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
           {/* Organizer route verwijderd; landing na login is /admin/events */}

@@ -129,6 +129,7 @@ export const updateMe = async (req, res) => {
       const exists = await Organizer.findOne({ email: updates.email, _id: { $ne: sessionUser.id } })
       if (exists) return res.status(409).json({ message: 'Email already in use' })
     }
+    // KVK verificatie verwijderd: alleen formaat/lock wordt toegepast
     if (passStr) {
       const hash = await bcrypt.hash(passStr, 10)
       updates.passwordHash = hash
@@ -141,3 +142,5 @@ export const updateMe = async (req, res) => {
     return res.status(500).json({ message: 'Error updating user', error: error.message })
   }
 }
+
+// Losse KVK-verificatie endpoint verwijderd

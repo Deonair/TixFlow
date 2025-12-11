@@ -25,11 +25,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Expose Node path (diagnostic)
-        shell: powershell
-        run: |
-          $node = (Get-Command node).Source
-          echo "NODE_PATH=$node" | Out-File -FilePath $env:GITHUB_ENV -Append
+      # Verwijderd: overbodige Node-pad diagnose
 
       - name: Ensure MongoDB available
         shell: powershell
@@ -108,7 +104,7 @@ jobs:
           if (Test-Path $feEnvSrc) { Copy-Item -Path $feEnvSrc -Destination $feEnvDst -Force; Write-Host "Copied frontend .env" } else { Write-Host "Frontend .env not found (skipping)" }
 
 
-      - name: Generate env files from GitHub Secrets (fallback)
+      - name: Genereer .env-bestanden uit GitHub Secrets (fallback)
         shell: powershell
         env:
           APP_BASE_URL: "${{ secrets.APP_BASE_URL }}"
@@ -118,6 +114,10 @@ jobs:
           EMAIL_FROM: "${{ secrets.EMAIL_FROM }}"
           STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
           STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL }}"
+          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD }}"
+          SUPERADMIN_EMAILS: "${{ secrets.SUPERADMIN_EMAILS }}"
+          SUPERADMIN_IDS: "${{ secrets.SUPERADMIN_IDS }}"
           VITE_API_BASE_URL: "${{ secrets.VITE_API_BASE_URL }}"
           VITE_STRIPE_PUBLISHABLE_KEY: "${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}"
         run: |
@@ -135,13 +135,17 @@ jobs:
               "RESEND_API_KEY=$env:RESEND_API_KEY",
               "EMAIL_FROM=$env:EMAIL_FROM",
               "STRIPE_SECRET_KEY=$env:STRIPE_SECRET_KEY",
-              "STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET"
+              "STRIPE_WEBHOOK_SECRET=$env:STRIPE_WEBHOOK_SECRET",
+              "SUPERADMIN_EMAIL=$env:SUPERADMIN_EMAIL",
+              "SUPERADMIN_PASSWORD=$env:SUPERADMIN_PASSWORD",
+              "SUPERADMIN_EMAILS=$env:SUPERADMIN_EMAILS",
+              "SUPERADMIN_IDS=$env:SUPERADMIN_IDS"
             )
             $content = [string]::Join("`n", $contentLines)
             Set-Content -Path $beEnvDst -Value $content -NoNewline
-            Write-Host "Generated backend .env from GitHub Secrets."
+            Write-Host "Backend .env gegenereerd uit GitHub Secrets (incl. SuperAdmin)."
           } else {
-            Write-Host "Backend .env already present; keeping server-side Secrets copy."
+            Write-Host "Backend .env al aanwezig; server-side Secrets versie behouden."
           }
 
           # Schrijf ALTIJD frontend .env.production uit Secrets (zorg dat nieuwe keys aanwezig zijn)
@@ -222,21 +226,21 @@ jobs:
           # Zorg dat deze stap nooit faalt als er niets te stoppen valt
           $global:LASTEXITCODE = 0
 
-      - name: Publish frontend to IIS
+      - name: Publiceer frontend naar IIS
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path "C:\TixFlow\wwwroot" -ErrorAction SilentlyContinue | Out-Null
           Remove-Item -Path "C:\TixFlow\wwwroot\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\dist\*" -Destination "C:\TixFlow\wwwroot" -Recurse -Force
 
-      - name: "Publish IIS web.config (API proxy)"
+      - name: "Publiceer IIS web.config (API proxy)"
         shell: powershell
         run: |
           Copy-Item -Path "C:\TixFlow\ProjectRoot\my-app\public\web.config" -Destination "C:\TixFlow\wwwroot\web.config" -Force
 
       # Install backend dependencies — redundant (handled below in PM2 start); removed
 
-      - name: "Configure PM2 auto-resurrect at boot"
+      - name: "PM2 automatisch herstellen bij systeemstart"
         shell: powershell
         run: |
           # Gebruik een scheduled task onder SYSTEM zodat PM2 processen automatisch terugkomen bij boot
@@ -250,14 +254,14 @@ jobs:
           schtasks /Create /SC ONSTART /TN $taskName /TR $tr /RL HIGHEST /RU SYSTEM /F
           Write-Host 'Scheduled task created for PM2 resurrect at startup.'
 
-      - name: "Install PM2 globally"
+      - name: "Installeer PM2 globaal"
         shell: powershell
         run: |
           npm install -g pm2
           Write-Host "PM2 installed; PM2 will manage the runtime."
       # NSSM niet langer gebruikt; PM2 beheert runtime
 
-      - name: "Deploy backend via PM2"
+      - name: "Deploy backend met PM2"
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -274,7 +278,7 @@ jobs:
           # Dependencies installeren met strikte checks
           $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
           if (-not $npmCmd) { $npmCmd = 'C:\Program Files\nodejs\npm.cmd' }
-          Write-Host ("Installing backend dependencies in {0} (production only)..." -f $backendDir)
+          Write-Host ("Installeer backend dependencies in {0} (alleen productie)..." -f $backendDir)
           Push-Location $backendDir
           $installOk = $false
           try {
@@ -333,7 +337,7 @@ jobs:
           } while ($attempt -lt $maxAttempts)
 
           if ($online -or $healthy) {
-            Write-Host ("Backend ready. PM2 online={0} health={1}" -f $online, $healthy)
+          Write-Host ("Backend gereed. PM2 online={0} health={1}" -f $online, $healthy)
           } else {
             Write-Host "PM2 failed to reach online status and health endpoint did not respond."
             if (Test-Path "$logDir\backend.err.log") { Write-Host "--- backend.err.log (tail) ---"; Get-Content -Path "$logDir\backend.err.log" -Tail 50 | Write-Host }
@@ -341,7 +345,7 @@ jobs:
             throw "Backend did not reach ready state via PM2/health"
           }
 
-      - name: "Confirm backend online via PM2"
+      - name: "Bevestig backend online via PM2"
         shell: powershell
         run: |
           # Skip handmatige start: PM2 beheert nu de backend
@@ -355,7 +359,7 @@ jobs:
           }
           Write-Host 'PM2 niet gevonden of proces niet online; geen handmatige start hier.'
 
-      - name: "Verify backend health"
+      - name: "Controleer backend health"
         shell: powershell
         run: |
           Start-Sleep -Seconds 7
@@ -366,7 +370,7 @@ jobs:
             Write-Host "Backend health check failed."
           }
 
-      - name: "Verify IIS proxy health"
+      - name: "Controleer IIS proxy health"
         shell: powershell
         run: |
           try {
@@ -377,7 +381,7 @@ jobs:
             Write-Host "IIS proxy health failed: $($_.Exception.Message)"
           }
 
-      - name: "Verify public health (best effort)"
+      - name: "Controleer publieke health (best effort)"
         shell: powershell
         run: |
           try {
@@ -390,7 +394,111 @@ jobs:
             Write-Host ("Public health check failed (non-blocking): {0}" -f $_.Exception.Message)
           }
 
-      - name: "Smoke test register endpoint (direct & via proxy)"
+      - name: "Test: Frontend lint"
+        shell: powershell
+        working-directory: C:\TixFlow\ProjectRoot\my-app
+        run: |
+          Write-Host 'Lint controle uitvoeren op frontend (React)'
+          npm run lint
+
+      - name: "Test: SuperAdmin login/logout (direct & via proxy)"
+        shell: powershell
+        env:
+          SUPERADMIN_EMAIL: "${{ secrets.SUPERADMIN_EMAIL }}"
+          SUPERADMIN_PASSWORD: "${{ secrets.SUPERADMIN_PASSWORD }}"
+        run: |
+          if (-not $env:SUPERADMIN_EMAIL -or -not $env:SUPERADMIN_PASSWORD) {
+            Write-Host 'SuperAdmin secrets ontbreken; sla deze test stap over.'
+            exit 0
+          }
+          # Direct backend sessie
+          $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+          $loginBody = @{ email = $env:SUPERADMIN_EMAIL; password = $env:SUPERADMIN_PASSWORD } | ConvertTo-Json
+          Write-Host 'Login (direct backend)'
+          try {
+            $resp = Invoke-WebRequest -Uri 'http://localhost:5050/api/admin/login' -Method Post -ContentType 'application/json' -Body $loginBody -TimeoutSec 8 -UseBasicParsing -WebSession $session
+            Write-Host "Login direct status: $($resp.StatusCode)"
+          } catch {
+            throw "Direct backend login failed: $($_.Exception.Message)"
+          }
+
+          Write-Host 'Controleer /api/admin/me (direct backend)'
+          $meOk = $false
+          try {
+            $me = Invoke-WebRequest -Uri 'http://localhost:5050/api/admin/me' -Method Get -TimeoutSec 5 -UseBasicParsing -WebSession $session
+            $json = $me.Content | ConvertFrom-Json
+            Write-Host ($json | ConvertTo-Json)
+            if ($json.ok -eq $true -and $json.role -eq 'superadmin') { $meOk = $true }
+          } catch {}
+          if (-not $meOk) { throw 'Direct backend /api/admin/me geeft geen superadmin sessie terug' }
+
+          Write-Host 'Logout (direct backend)'
+          try {
+            Invoke-WebRequest -Uri 'http://localhost:5050/api/admin/logout' -Method Post -TimeoutSec 5 -UseBasicParsing -WebSession $session | Out-Null
+          } catch { Write-Host "Logout direct fout (negeren): $($_.Exception.Message)" }
+          $loggedOut = $false
+          try {
+            Invoke-WebRequest -Uri 'http://localhost:5050/api/admin/me' -Method Get -TimeoutSec 5 -UseBasicParsing -WebSession $session | Out-Null
+            Write-Host 'Expect 403 na logout maar kreeg 200'
+          } catch {
+            $loggedOut = $true
+          }
+          if (-not $loggedOut) { throw 'Direct backend logout faalde (sessie bleef actief)' }
+
+          # IIS proxy sessie
+          $sessionProxy = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+          Write-Host 'Login (IIS proxy)'
+          try {
+            $respP = Invoke-WebRequest -Uri 'http://localhost/api/admin/login' -Method Post -ContentType 'application/json' -Body $loginBody -TimeoutSec 8 -UseBasicParsing -WebSession $sessionProxy
+            Write-Host "Login proxy status: $($respP.StatusCode)"
+          } catch {
+            throw "Proxy login failed: $($_.Exception.Message)"
+          }
+
+          Write-Host 'Controleer /api/admin/me (via proxy)'
+          $meOkP = $false
+          try {
+            $meP = Invoke-WebRequest -Uri 'http://localhost/api/admin/me' -Method Get -TimeoutSec 5 -UseBasicParsing -WebSession $sessionProxy
+            $jsonP = $meP.Content | ConvertFrom-Json
+            Write-Host ($jsonP | ConvertTo-Json)
+            if ($jsonP.ok -eq $true -and $jsonP.role -eq 'superadmin') { $meOkP = $true }
+          } catch {}
+          if (-not $meOkP) { throw 'Proxy /api/admin/me geeft geen superadmin sessie terug' }
+
+          Write-Host 'Logout (via proxy)'
+          try {
+            Invoke-WebRequest -Uri 'http://localhost/api/admin/logout' -Method Post -TimeoutSec 5 -UseBasicParsing -WebSession $sessionProxy | Out-Null
+          } catch { Write-Host "Proxy logout fout (negeren): $($_.Exception.Message)" }
+          $loggedOutP = $false
+          try {
+            Invoke-WebRequest -Uri 'http://localhost/api/admin/me' -Method Get -TimeoutSec 5 -UseBasicParsing -WebSession $sessionProxy | Out-Null
+            Write-Host 'Expect 403 na logout (proxy) maar kreeg 200'
+          } catch {
+            $loggedOutP = $true
+          }
+          if (-not $loggedOutP) { throw 'Proxy logout faalde (sessie bleef actief)' }
+
+      - name: "Test: Preview endpoints renderen (email & pdf)"
+        shell: powershell
+        run: |
+          Write-Host 'Test /api/preview/email (HTML)'
+          try {
+            $resp = Invoke-WebRequest -Uri 'http://localhost:5050/api/preview/email' -Method Get -UseBasicParsing -TimeoutSec 6
+            Write-Host "Status: $($resp.StatusCode) Content-Type: $($resp.Headers['Content-Type'])"
+            if (-not ($resp.Headers['Content-Type'] -like '*text/html*')) { throw 'Preview email geen HTML' }
+          } catch {
+            throw "Preview email test faalde: $($_.Exception.Message)"
+          }
+          Write-Host 'Test /api/preview/pdf (PDF)'
+          try {
+            $resp2 = Invoke-WebRequest -Uri 'http://localhost:5050/api/preview/pdf' -Method Get -UseBasicParsing -TimeoutSec 6
+            Write-Host "Status: $($resp2.StatusCode) Content-Type: $($resp2.Headers['Content-Type'])"
+            if (-not ($resp2.Headers['Content-Type'] -like '*application/pdf*')) { throw 'Preview pdf geen PDF content type' }
+          } catch {
+            throw "Preview pdf test faalde: $($_.Exception.Message)"
+          }
+
+      - name: "Smoketest register endpoint (direct & via proxy)"
         shell: powershell
         run: |
           $projectRoot = 'C:\TixFlow\ProjectRoot'
@@ -442,7 +550,7 @@ jobs:
           node -e $js
           Pop-Location
 
-      - name: "Diagnostics: ports & PM2"
+      - name: "Diagnose: poorten & PM2"
         shell: powershell
         run: |
           Write-Host 'Listing listeners on :5050'
