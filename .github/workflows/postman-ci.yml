@@ -38,12 +38,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: List lockfiles
+        run: ls -la **/package-lock.json || true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: my-app/backend/package-lock.json
+          cache-dependency-path: "**/package-lock.json"
 
       - name: Install backend deps
         working-directory: my-app/backend
