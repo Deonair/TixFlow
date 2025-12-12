@@ -14,3 +14,9 @@ export default defineConfig({
     },
   },
 });
+
+module.exports = {
+  e2e: {
+    experimentalSessionAndOrigin: true,
+  },
+}

@@ -1,0 +1,87 @@
+name: Postman API CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  postman:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      NODE_ENV: test
+      PORT: 5050
+      MONGO_URI: mongodb://127.0.0.1:27017/tixflow
+      SESSION_SECRET: ci-secret
+      COOKIE_SECURE: "false"
+      APP_BASE_URL: http://localhost:5173
+
+      # dummy values (handig als routes ze ooit aanraken)
+      STRIPE_SECRET_KEY: sk_test_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_dummy
+      RESEND_API_KEY: re_dummy
+      EMAIL_FROM: test@tixflow.local
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: my-app/backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: my-app/backend
+        run: npm ci
+
+      - name: Start API
+        working-directory: my-app/backend
+        run: |
+          node index.js > api.log 2>&1 &
+          echo $! > api.pid
+
+      - name: Health check
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5050/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API start failed"
+          cat my-app/backend/api.log || true
+          exit 1
+
+      - name: Install Newman
+        run: npm i -g newman
+
+      - name: Run Postman collection
+        run: |
+          newman run postman/TixFlow-CI.postman_collection.json \
+            --env-var baseUrl=http://localhost:5050 \
+            --reporters cli,junit \
+            --reporter-junit-export newman-results.xml
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-results
+          path: |
+            newman-results.xml
+            my-app/backend/api.log
