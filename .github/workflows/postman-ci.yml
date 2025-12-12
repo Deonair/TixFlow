@@ -46,7 +46,10 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: "**/package-lock.json"
+          cache-dependency-path: |
+            package-lock.json
+            my-app/package-lock.json
+            my-app/backend/package-lock.json
 
       - name: Install backend deps
         working-directory: my-app/backend
