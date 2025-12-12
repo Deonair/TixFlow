@@ -21,13 +21,13 @@
 									"  pm.expect(pm.response.code).to.equal(201);",
 									"});",
 									"",
-									"let data = {};",
-									"try { data = pm.response.json(); } catch (e) {}",
+                                    "let resp = {};",
+                                    "try { resp = pm.response.json(); } catch (e) {}",
 									"",
-									"const userId = data?._id || data?.user?._id || data?.id;",
+                                    "const userId = resp?._id || resp?.user?._id || resp?.id;",
 									"if (userId) pm.collectionVariables.set(\"userId\", userId);",
 									"",
-									"postman.setNextRequest(\"Login Wrong Creditials\");"
+                                    "pm.execution.setNextRequest(\"Login Wrong Creditials\");"
 								]
 							}
 						}
@@ -70,7 +70,7 @@
 									"  pm.expect(pm.response.code).to.equal(401);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Login\");"
+                                    "pm.execution.setNextRequest(\"Login\");"
 								]
 							}
 						}
@@ -120,13 +120,13 @@
 									"  if (match && match[0]) pm.collectionVariables.set(\"sidCookie\", match[0]);",
 									"}",
 									"",
-									"let data = {};",
-									"try { data = pm.response.json(); } catch (e) {}",
+                                    "let resp = {};",
+                                    "try { resp = pm.response.json(); } catch (e) {}",
 									"",
-									"const userId = data?._id || data?.user?._id || data?.id;",
+                                    "const userId = resp?._id || resp?.user?._id || resp?.id;",
 									"if (userId) pm.collectionVariables.set(\"userId\", userId);",
 									"",
-									"postman.setNextRequest(\"Me\");"
+                                    "pm.execution.setNextRequest(\"Me\");"
 								]
 							}
 						}
@@ -168,7 +168,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Organisator updaten\");",
+                                    "pm.execution.setNextRequest(\"Organisator updaten\");",
 									""
 								],
 								"type": "text/javascript",
@@ -218,7 +218,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Event Maken\");"
+                                    "pm.execution.setNextRequest(\"Event Maken\");"
 								]
 							}
 						}
@@ -228,7 +228,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"organizationName\": \"{{orgName}} Updated\"\n}\n",
+                            "raw": "{\n  \"organization\": \"{{orgName}} Updated\"\n}\n",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -293,16 +293,16 @@
 									"  pm.expect(pm.response.code).to.equal(201);",
 									"});",
 									"",
-									"let data = {};",
-									"try { data = pm.response.json(); } catch (e) {}",
+                                    "let resp = {};",
+                                    "try { resp = pm.response.json(); } catch (e) {}",
 									"",
-									"const eventId = data?._id || data?.event?._id || data?.id;",
-									"const slug = data?.slug || data?.event?.slug;",
+                                    "const eventId = resp?._id || resp?.event?._id || resp?.id;",
+                                    "const slug = resp?.slug || resp?.event?.slug;",
 									"",
 									"if (eventId) pm.collectionVariables.set(\"eventId\", eventId);",
 									"if (slug) pm.collectionVariables.set(\"eventSlug\", slug);",
 									"",
-									"postman.setNextRequest(\"Event Inzien\");"
+                                    "pm.execution.setNextRequest(\"Event Inzien\");"
 								]
 							}
 						}
@@ -344,8 +344,8 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"const data = pm.response.json();",
-									"const list = Array.isArray(data) ? data : (data.events || []);",
+                                    "const resp = pm.response.json();",
+                                    "const list = Array.isArray(resp) ? resp : (resp.events || []);",
 									"",
 									"pm.expect(list.length).to.be.above(0);",
 									"",
@@ -354,7 +354,7 @@
 									"pm.collectionVariables.set(\"eventId\", e._id || e.id);",
 									"pm.collectionVariables.set(\"eventSlug\", e.slug);",
 									"",
-									"postman.setNextRequest(\"Event Zonder Login\");",
+                                    "pm.execution.setNextRequest(\"Event Zonder Login\");",
 									""
 								],
 								"type": "text/javascript",
@@ -413,7 +413,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"orders\");",
+                                    "pm.execution.setNextRequest(\"orders\");",
 									""
 								],
 								"type": "text/javascript",
@@ -479,7 +479,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Health\");",
+                                    "pm.execution.setNextRequest(\"Health\");",
 									""
 								],
 								"type": "text/javascript",
@@ -563,7 +563,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Email\");",
+                                    "pm.execution.setNextRequest(\"Email\");",
 									""
 								],
 								"type": "text/javascript",
@@ -599,7 +599,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Pdf\");",
+                                    "pm.execution.setNextRequest(\"Pdf\");",
 									""
 								],
 								"type": "text/javascript",
@@ -638,7 +638,7 @@
 									"  pm.expect(pm.response.code).to.equal(200);",
 									"});",
 									"",
-									"postman.setNextRequest(\"Logout\");",
+                                    "pm.execution.setNextRequest(\"Logout\");",
 									""
 								],
 								"type": "text/javascript",
@@ -680,7 +680,7 @@
 							"",
 							"pm.collectionVariables.unset(\"sidCookie\");",
 							"",
-							"postman.setNextRequest(null);"
+                            "pm.execution.setNextRequest(null);"
 						]
 					}
 				}
