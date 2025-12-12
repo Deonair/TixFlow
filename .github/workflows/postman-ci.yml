@@ -48,7 +48,14 @@ jobs:
 
       - name: Install backend deps
         working-directory: my-app/backend
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "Lockfile gevonden → npm ci"
+            npm ci
+          else
+            echo "Geen lockfile gevonden → fallback naar npm install"
+            npm install
+          fi
 
       - name: Start API
         working-directory: my-app/backend
