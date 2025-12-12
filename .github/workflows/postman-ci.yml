@@ -80,7 +80,7 @@ jobs:
 
       - name: Run Postman collection
         run: |
-          newman run postman/TixFlow-CI.postman_collection.json \
+          newman run "postman/TixFlow CI.postman_collection.json" \
             --env-var baseUrl=http://localhost:5050 \
             --reporters cli,junit \
             --reporter-junit-export newman-results.xml
