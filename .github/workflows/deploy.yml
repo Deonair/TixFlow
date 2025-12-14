@@ -706,7 +706,9 @@ jobs:
           $projectRoot = 'C:\TixFlow\ProjectRoot'
           $backendDir = Join-Path $projectRoot 'my-app\backend'
           $emailDiag = "diag+$(Get-Random)@tixflow.local"
+          $emailDiagProxy = "diagp+$(Get-Random)@tixflow.local"
           $body = @{ name = 'Diag User'; email = $emailDiag; organization = 'Diag Org'; password = 'Passw0rd!' } | ConvertTo-Json
+          $bodyProxy = @{ name = 'Diag User'; email = $emailDiagProxy; organization = 'Diag Org'; password = 'Passw0rd!' } | ConvertTo-Json
           Write-Host 'Testing direct backend POST /api/users/register'
           try {
             $resp = Invoke-WebRequest -Uri 'http://localhost:5050/api/users/register' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8 -UseBasicParsing
@@ -718,7 +720,7 @@ jobs:
 
           Write-Host 'Testing IIS proxy POST /api/users/register'
           try {
-            $resp2 = Invoke-WebRequest -Uri 'http://localhost/api/users/register' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8 -UseBasicParsing
+            $resp2 = Invoke-WebRequest -Uri 'http://localhost/api/users/register' -Method Post -ContentType 'application/json' -Body $bodyProxy -TimeoutSec 8 -UseBasicParsing
             Write-Host "IIS proxy register status: $($resp2.StatusCode)"
             Write-Host $resp2.Content
           } catch {
@@ -726,22 +728,27 @@ jobs:
           }
 
           # Cleanup: verwijder de diagnostische user direct uit de database
-          Write-Host ("Cleanup: delete diagnostic user(s) with email: {0}" -f $emailDiag)
+          Write-Host ("Cleanup: delete diagnostic user(s) with emails: {0}, {1}" -f $emailDiag, $emailDiagProxy)
           Push-Location $backendDir
-          $env:DIAG_EMAIL = $emailDiag
+          $env:DIAG_EMAILS = "$emailDiag,$emailDiagProxy"
           $js = @"
           const path = require('path');
           require('dotenv').config({ path: path.join(process.cwd(), '.env') });
           const mongoose = require('mongoose');
-          const email = process.env.DIAG_EMAIL;
+          const emailsEnv = process.env.DIAG_EMAILS || '';
+          const emails = emailsEnv.split(',').map(s => s.trim()).filter(Boolean);
           const uri = process.env.MONGO_URI;
           const OrganizerSchema = new mongoose.Schema({ email: String }, { collection: 'organizers' });
           const Organizer = mongoose.model('Organizer', OrganizerSchema);
           (async () => {
             try {
               await mongoose.connect(uri);
-              const res = await Organizer.deleteMany({ email });
-              console.log('Cleanup: deleted', res.deletedCount, 'diag user(s) with email', email);
+              if (emails.length) {
+                const res = await Organizer.deleteMany({ email: { $in: emails } });
+                console.log('Cleanup: deleted', res.deletedCount, 'diag user(s) with emails', emails.join(', '));
+              } else {
+                console.log('Cleanup: no diagnostic emails provided');
+              }
             } catch (e) {
               console.log('Cleanup failed:', e.message);
             } finally {
