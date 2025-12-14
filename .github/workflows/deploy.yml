@@ -731,7 +731,7 @@ jobs:
           Write-Host ("Cleanup: delete diagnostic user(s) with emails: {0}, {1}" -f $emailDiag, $emailDiagProxy)
           Push-Location $backendDir
           $env:DIAG_EMAILS = "$emailDiag,$emailDiagProxy"
-          $js = @"
+          $js = @'
           const path = require('path');
           require('dotenv').config({ path: path.join(process.cwd(), '.env') });
           const mongoose = require('mongoose');
@@ -755,7 +755,7 @@ jobs:
               await mongoose.disconnect();
             }
           })();
-          "@
+          '@
           node -e $js
           Pop-Location
 
