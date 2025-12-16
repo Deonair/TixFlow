@@ -47,11 +47,12 @@ pnpm-debug.log*
 .vscode/
 .idea/
 
-# Package files (don't commit package managers' files)
+# Package files
+# Allow committing lockfiles for CI caching and deterministic installs
 # package.json
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+!/package-lock.json
+!/yarn.lock
+!/pnpm-lock.yaml
 
 # Backend package files
 # Allow committing backend package.json for server dependencies
