@@ -8,17 +8,17 @@ it('Invalid Login Credentials', function() {
      cy.visit('https://tixflow.nl/')
      cy.get('#root a[href="/login"]').click();
      cy.get('#email').click();
-     cy.get('#email').type('Test@test.nl');
-     cy.get('#password').click();
-     cy.get('#password').type('Test123');
-     cy.contains('button', 'Login').click();
-     cy.get('#password').click();
-     cy.get('#password').clear();
-     cy.get('html').click();
-     cy.contains('button', 'Login').click();
-     cy.get('#email').click();
-     cy.get('#email').clear();
-     cy.contains('button', 'Login').click();
+  cy.get('#email').type('Test@test.nl');
+  cy.get('#password').click();
+  cy.get('#password').type('Test123');
+  cy.get('button[type="submit"]').click();
+  cy.get('#password').click();
+  cy.get('#password').clear();
+  cy.get('html').click();
+  cy.get('button[type="submit"]').click();
+  cy.get('#email').click();
+  cy.get('#email').clear();
+  cy.get('button[type="submit"]').click();
      
 });
 

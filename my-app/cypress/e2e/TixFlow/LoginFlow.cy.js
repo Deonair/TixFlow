@@ -21,7 +21,7 @@ it('CreateLogin', function() {
   cy.get('#email').click();
   cy.get('#email').type('chris@tixflow.nl');
   cy.get('#password').type('test123#');
-  cy.contains('button', 'Login').click();
+  cy.get('button[type="submit"]').click();
   
 });
 
@@ -49,7 +49,7 @@ it('Event Aanmaken', function() {
   cy.get('#root input[step="0.01"]').type('10');
   cy.get('#root input[step="1"]').type('100');
   cy.contains('button', 'Event Aanmaken').click();
-  cy.contains('button', 'Publieke pagina').click();
+  cy.visit('https://tixflow.nl/event/windesheim-winterball');
 });
 
 it('Event ticket kopen', function() {
