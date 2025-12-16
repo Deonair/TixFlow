@@ -18,3 +18,5 @@ it('Account', function() {
   cy.get('#root button.text-white').click();
   
 });
+
+it('PaymentFormTest', function() {});

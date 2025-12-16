@@ -1,4 +1,4 @@
-name: TixFlow API CI
+name: TixFlow CI
 
 on:
   push:
@@ -7,10 +7,12 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
+  # ---------------------------------------------------
+  # JOB 1: API Tests (Postman/Newman)
+  # ---------------------------------------------------
   newman-tests:
     runs-on: ubuntu-latest
 
-    # Setup a MongoDB service container so tests run against a fresh DB
     services:
       mongodb:
         image: mongo:latest
@@ -18,11 +20,9 @@ jobs:
           - 27017:27017
 
     steps:
-    # 1. Checkout your code
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 2. Setup Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -30,24 +30,73 @@ jobs:
         cache: 'npm'
         cache-dependency-path: my-app/backend/package-lock.json
 
-    # 3. Install Dependencies
-    - name: Install Dependencies
+    - name: Install Backend Dependencies
       run: npm --prefix my-app/backend ci
 
-    # 4. Start the TixFlow Server in the background
-    # We use 'wait-on' to ensure the server is ready before testing
-    - name: Start Server
+    - name: Start Server & Run Postman
       env:
         PORT: 5050
-        MONGO_URI: mongodb://localhost:27017/tixflow_test
+        MONGO_URI: mongodb://localhost:27017/tixflow_api_test
         JWT_SECRET: test_secret_key
-        # Add any other ENV variables your app needs here
       run: |
         npm --prefix my-app/backend start &
         npx wait-on http://localhost:5050/api/health
+        npx newman run "tests/postman/TixFlow CI.postman_collection.json" --verbose
 
-    # 5. Run Postman Collection via Newman
-    - name: Run API Tests
-      run: |
-        npx newman run "tests/postman/TixFlow CI.postman_collection.json" \
-          --verbose
+  # ---------------------------------------------------
+  # JOB 2: E2E Tests (Cypress)
+  # ---------------------------------------------------
+  cypress-tests:
+    runs-on: ubuntu-latest
+    # Needs its own MongoDB service since it runs on a different runner
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install Backend Dependencies (so we can start the API)
+      - name: Install Backend Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: my-app/backend/package-lock.json
+      - run: npm --prefix my-app/backend ci
+
+      # Install Frontend/Cypress Dependencies
+      # Assumes package.json is in my-app/frontend
+      - name: Install Frontend Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: my-app/frontend/package-lock.json
+      - run: npm --prefix my-app/frontend ci
+
+      # Run Cypress using the official Action
+      # This handles starting the server, waiting for it, and running the tests
+      - name: Cypress Run
+        uses: cypress-io/github-action@v6
+        with:
+          # Directory where cypress is installed (usually frontend)
+          working-directory: my-app/frontend
+          
+          # Command to start the BACKEND server
+          start: npm --prefix ../backend start
+          
+          # Wait for backend to be ready
+          wait-on: 'http://localhost:5050/api/health'
+          
+          # (Optional) If you also need to serve the frontend:
+          # start: npm --prefix ../backend start, npm --prefix . start
+          # wait-on: 'http://localhost:5050/api/health, http://localhost:3000'
+          
+        env:
+          PORT: 5050
+          MONGO_URI: mongodb://localhost:27017/tixflow_e2e_test
+          JWT_SECRET: test_secret_key
