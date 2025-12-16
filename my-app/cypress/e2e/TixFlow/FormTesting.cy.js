@@ -23,7 +23,7 @@ it('Invalid Login Credentials', function() {
 });
 
 it('Invalid Payment Credentials', function() {
-  cy.visit('https://tixflow.nl//kerstdiner')
+  cy.visit('https://tixflow.nl/event/windesheim-winterball')
   
   cy.get('#root button[aria-label="Verhoog aantal"]').first().click();
   cy.contains('button', 'Koop nu').click();
@@ -47,7 +47,7 @@ it('Invalid Payment Credentials', function() {
 });
 
 it('Invalid Event Form Credentials', function() {
-  cy.visit('https://tixflow.nl/')
+  cy.visit('https://tixflow.nl/event/windesheim-winterball')
   
   cy.get('#root a[href="/login"]').click();
   cy.get('#email').click();

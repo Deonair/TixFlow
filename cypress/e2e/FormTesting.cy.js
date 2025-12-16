@@ -23,7 +23,7 @@ it('Invalid Login Credentials', function() {
 });
 
 it('Invalid Payment Credentials', function() {
-  cy.visit('http://localhost:5173/event/kerstdiner-9so9iy')
+  cy.visit('https://tixflow.nl/event/windesheim-winterball')
   
   cy.get('#root button.text-gray-700').click();
   cy.get('#root button[aria-label="Verhoog aantal"]').click();
