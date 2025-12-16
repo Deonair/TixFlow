@@ -1,0 +1,52 @@
+name: TixFlow API CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  newman-tests:
+    runs-on: ubuntu-latest
+
+    # Setup a MongoDB service container so tests run against a fresh DB
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+    # 1. Checkout your code
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Setup Node.js
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    # 3. Install Dependencies
+    - name: Install Dependencies
+      run: npm ci
+
+    # 4. Start the TixFlow Server in the background
+    # We use 'wait-on' to ensure the server is ready before testing
+    - name: Start Server
+      env:
+        PORT: 5050
+        MONGO_URI: mongodb://localhost:27017/tixflow_test
+        JWT_SECRET: test_secret_key
+        # Add any other ENV variables your app needs here
+      run: |
+        npm start &
+        npx wait-on http://localhost:5050/api/health
+
+    # 5. Run Postman Collection via Newman
+    - name: Run API Tests
+      run: |
+        npx newman run "tests/postman/TixFlow CI2.postman_collection.json" \
+          --verbose

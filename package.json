@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "cypress": "^15.6.0",
+    "newman": "^6.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "vite": "^7.2.2"

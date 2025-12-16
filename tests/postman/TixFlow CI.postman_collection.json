@@ -1,0 +1,811 @@
+{
+	"info": {
+		"_postman_id": "815e5093-8329-4288-8ef6-fe1056d60f44",
+		"name": "TixFlow CI Copy",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "18664643"
+	},
+	"item": [
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Register status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(201);",
+									"});",
+									"",
+									"let respData = {};",
+									"try { respData = pm.response.json(); } catch (e) {}",
+									"",
+									"const userId = respData?._id || respData?.user?._id || respData?.id;",
+									"if (userId) pm.collectionVariables.set(\"userId\", userId);",
+									"",
+									"pm.execution.setNextRequest(\"Login Wrong Creditials\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Deo Test\",\n  \"email\": \"{{email}}\",\n  \"organization\": \"TixFlow Test Org\",\n  \"password\": \"Test12345\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Wrong Creditials",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Login wrong credentials should fail\", function () {",
+									"  pm.expect(pm.response.code).to.equal(401);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Login\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"wrong-password\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Login status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"// Capture connect.sid from Set-Cookie (useful for runner/newman)",
+									"const setCookie = pm.response.headers.get(\"Set-Cookie\");",
+									"if (setCookie) {",
+									"  const match = setCookie.match(/connect\\.sid=[^;]+/);",
+									"  if (match && match[0]) pm.collectionVariables.set(\"sidCookie\", match[0]);",
+									"}",
+									"",
+									"let respData = {};",
+									"try { respData = pm.response.json(); } catch (e) {}",
+									"",
+									"const userId = respData?._id || respData?.user?._id || respData?.id;",
+									"if (userId) pm.collectionVariables.set(\"userId\", userId);",
+									"",
+									"pm.execution.setNextRequest(\"Me\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"Test12345\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Me",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Me status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Organisator updaten\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Organisator updaten",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Update organizer status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Event Maken\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"organizationName\": \"{{orgName}} Updated\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"auth": {
+				"type": "noauth"
+			},
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Events",
+			"item": [
+				{
+					"name": "Event Maken",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Create event status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(201);",
+									"});",
+									"",
+									"let respData = {};",
+									"try { respData = pm.response.json(); } catch (e) {}",
+									"",
+									"const eventId = respData?._id || respData?.event?._id || respData?.id;",
+									"const slug = respData?.slug || respData?.event?.slug;",
+									"",
+									"if (eventId) pm.collectionVariables.set(\"eventId\", eventId);",
+									"if (slug) pm.collectionVariables.set(\"eventSlug\", slug);",
+									"",
+									"pm.execution.setNextRequest(\"Event Inzien\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Windesheim Festival\",\n  \"date\": \"2026-01-10T20:00:00.000Z\",\n  \"location\": \"Amsterdam\",\n  \"description\": \"Event gemaakt via Postman\",\n  \"ticketTypes\": [\n    { \"name\": \"Regular\", \"price\": 10, \"capacity\": 100 }\n  ]\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/events/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"events",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Event Inzien",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Get events status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"const respData = pm.response.json();",
+									"const list = Array.isArray(respData) ? respData : (respData.events || []);",
+									"",
+									"pm.expect(list.length).to.be.above(0);",
+									"",
+									"// Pak eerste event en sla op",
+									"const e = list[0];",
+									"pm.collectionVariables.set(\"eventId\", e._id || e.id);",
+									"pm.collectionVariables.set(\"eventSlug\", e.slug);",
+									"",
+									"pm.execution.setNextRequest(\"Event Zonder Login\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"events"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Event Zonder Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Public event by slug status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"orders\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Ensure no Cookie header is sent for this public endpoint test",
+									"pm.request.headers.remove(\"Cookie\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"events"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "orders",
+			"item": [
+				{
+					"name": "orders",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Orders status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Health\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders?eventId=%7B%7BeventId%7D%7D",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "eventId",
+									"value": "{{eventId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Core",
+			"item": [
+				{
+					"name": "Stripe",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Stripe webhook endpoint - typically returns 200 for GET health check",
+									"// Note: Actual webhook POST requests would need Stripe signature verification",
+									"pm.test(\"Stripe webhook endpoint status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"// This is the last request in the CI flow before Logout",
+									"// No setNextRequest needed as Pdf already points to Logout"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/webhook/stripe",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"webhook",
+								"stripe"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Health status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Email\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Email preview status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Pdf\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5050/api/preview/email",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5050",
+							"path": [
+								"api",
+								"preview",
+								"email"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pdf",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"PDF preview status\", function () {",
+									"  pm.expect(pm.response.code).to.equal(200);",
+									"});",
+									"",
+									"pm.execution.setNextRequest(\"Logout\");",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/preview/pdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"preview",
+								"pdf"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Logout",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"Logout status\", function () {",
+							"  pm.expect(pm.response.code).to.equal(200);",
+							"});",
+							"",
+							"pm.collectionVariables.unset(\"sidCookie\");",
+							"",
+							"pm.execution.setNextRequest(null);"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/users/logout",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users",
+						"logout"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					"// Base URL defaults",
+					"if (!pm.collectionVariables.get(\"baseUrl\")) {",
+					"  pm.collectionVariables.set(\"baseUrl\", \"http://localhost:5050\");",
+					"}",
+					"",
+					"// Generate unique test data once per run",
+					"if (!pm.collectionVariables.get(\"email\")) {",
+					"  const ts = Date.now();",
+					"  pm.collectionVariables.set(\"email\", `tixflow_${ts}@example.com`);",
+					"}",
+					"",
+					"if (!pm.collectionVariables.get(\"fullName\")) {",
+					"  pm.collectionVariables.set(\"fullName\", \"TixFlow Test User\");",
+					"}",
+					"",
+					"if (!pm.collectionVariables.get(\"orgName\")) {",
+					"  pm.collectionVariables.set(\"orgName\", \"TixFlow Test Org\");",
+					"}",
+					"",
+					"if (!pm.collectionVariables.get(\"eventTitle\")) {",
+					"  const ts = Date.now();",
+					"  pm.collectionVariables.set(\"eventTitle\", `Postman Event ${ts}`);",
+					"}",
+					"",
+					"if (!pm.collectionVariables.get(\"eventDate\")) {",
+					"  // ISO string; backend kan het als Date parsen",
+					"  const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);",
+					"  pm.collectionVariables.set(\"eventDate\", d.toISOString());",
+					"}",
+					"",
+					"// Attach session cookie (if captured)",
+					"const sid = pm.collectionVariables.get(\"sidCookie\");",
+					"if (sid) {",
+					"  pm.request.headers.upsert({ key: \"Cookie\", value: sid });",
+					"}",
+					"",
+					"// Standard headers",
+					"pm.request.headers.upsert({ key: \"Accept\", value: \"application/json\" });",
+					"",
+					"// Only set JSON content-type for requests that have a body",
+					"if ([\"POST\", \"PUT\", \"PATCH\"].includes(pm.request.method)) {",
+					"  pm.request.headers.upsert({ key: \"Content-Type\", value: \"application/json\" });",
+					"}",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": ""
+		},
+		{
+			"key": "email",
+			"value": ""
+		},
+		{
+			"key": "fullName",
+			"value": ""
+		},
+		{
+			"key": "orgName",
+			"value": ""
+		},
+		{
+			"key": "eventTitle",
+			"value": ""
+		},
+		{
+			"key": "eventDate",
+			"value": ""
+		},
+		{
+			"key": "userId",
+			"value": ""
+		},
+		{
+			"key": "eventId",
+			"value": ""
+		},
+		{
+			"key": "eventSlug",
+			"value": ""
+		}
+	]
+}
