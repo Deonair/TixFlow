@@ -63,7 +63,7 @@ jobs:
       - name: Install Backend Dependencies
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: my-app/backend/package-lock.json
       - run: npm --prefix my-app/backend ci
@@ -73,8 +73,9 @@ jobs:
       - name: Install Frontend Dependencies
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
+          cache-dependency-path: my-app/package-lock.json
       - run: npm --prefix my-app ci || npm --prefix my-app install
 
       # Run Cypress using the official Action
