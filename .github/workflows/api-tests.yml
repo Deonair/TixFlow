@@ -85,12 +85,14 @@ jobs:
         with:
           # Directory where cypress and frontend live
           working-directory: my-app
+          install: false
           
           # Command to start the BACKEND server
           start: npm --prefix backend start, npm run dev
           
           # Wait for backend to be ready
           wait-on: 'http://localhost:5050/api/health, http://localhost:5173'
+          wait-on-timeout: 120000
           
           # (Optional) If you also need to serve the frontend:
           # start: npm --prefix ../backend start, npm --prefix . start
