@@ -5,7 +5,7 @@ describe('template spec', () => {
 });
 
 it('Invalid Login Credentials', function() {
-     cy.visit('http://localhost:5173')
+     cy.visit('https://tixflow.nl/')
      cy.get('#root a[href="/login"]').click();
      cy.get('#email').click();
      cy.get('#email').type('Test@test.nl');
@@ -23,7 +23,7 @@ it('Invalid Login Credentials', function() {
 });
 
 it('Invalid Payment Credentials', function() {
-  cy.visit('http://localhost:5173/event/kerstdiner-9so9iy')
+  cy.visit('https://tixflow.nl//kerstdiner')
   
   cy.get('#root button.text-gray-700').click();
   cy.get('#root button[aria-label="Verhoog aantal"]').click();
@@ -48,7 +48,7 @@ it('Invalid Payment Credentials', function() {
 });
 
 it('Invalid Event Form Credentials', function() {
-  cy.visit('localhost:5173')
+  cy.visit('https://tixflow.nl/')
   
   cy.get('#root a[href="/login"]').click();
   cy.get('#email').click();

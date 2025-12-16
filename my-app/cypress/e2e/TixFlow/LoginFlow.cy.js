@@ -5,7 +5,7 @@ describe('template spec', () => {
 });
 
 it('CreateLogin', function() {
-  cy.visit('http://localhost:5173')
+  cy.visit('https://tixflow.nl/')
   
   cy.get('#root a[href="/register"]').click();
   cy.get('[name="name"]').click();
@@ -26,7 +26,7 @@ it('CreateLogin', function() {
 });
 
 it('Event Aanmaken', function() {
-  cy.visit('http://localhost:5173')
+  cy.visit('https://tixflow.nl')
   
   cy.get('#root a[href="/login"]').click();
   cy.get('#email').click();
@@ -53,7 +53,7 @@ it('Event Aanmaken', function() {
 });
 
 it('Event ticket kopen', function() {
-  cy.visit('http://localhost:5173/event/windesheim-winterball')
+  cy.visit('https://tixflow.nl/event/windesheim-winterball')
   
   cy.get('#root button.text-gray-700').click();
   cy.get('#root button.w-full').click();
