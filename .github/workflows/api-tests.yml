@@ -69,25 +69,25 @@ jobs:
       - run: npm --prefix my-app/backend ci
 
       # Install Frontend/Cypress Dependencies
-      # Assumes package.json is in my-app/frontend
+      # Frontend package.json is in my-app
       - name: Install Frontend Dependencies
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: my-app/frontend/package-lock.json
-      - run: npm --prefix my-app/frontend ci
+          cache-dependency-path: my-app/package-lock.json
+      - run: npm --prefix my-app ci
 
       # Run Cypress using the official Action
       # This handles starting the server, waiting for it, and running the tests
       - name: Cypress Run
         uses: cypress-io/github-action@v6
         with:
-          # Directory where cypress is installed (usually frontend)
-          working-directory: my-app/frontend
+          # Directory where cypress and frontend live
+          working-directory: my-app
           
           # Command to start the BACKEND server
-          start: npm --prefix ../backend start
+          start: npm --prefix backend start
           
           # Wait for backend to be ready
           wait-on: 'http://localhost:5050/api/health'
