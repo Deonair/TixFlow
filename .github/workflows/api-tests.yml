@@ -28,10 +28,11 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
+        cache-dependency-path: my-app/backend/package-lock.json
 
     # 3. Install Dependencies
     - name: Install Dependencies
-      run: npm ci
+      run: npm --prefix my-app/backend ci
 
     # 4. Start the TixFlow Server in the background
     # We use 'wait-on' to ensure the server is ready before testing
@@ -42,11 +43,11 @@ jobs:
         JWT_SECRET: test_secret_key
         # Add any other ENV variables your app needs here
       run: |
-        npm start &
+        npm --prefix my-app/backend start &
         npx wait-on http://localhost:5050/api/health
 
     # 5. Run Postman Collection via Newman
     - name: Run API Tests
       run: |
-        npx newman run "tests/postman/TixFlow CI2.postman_collection.json" \
+        npx newman run "tests/postman/TixFlow CI.postman_collection.json" \
           --verbose

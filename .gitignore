@@ -1,9 +1,9 @@
-my-app/backend/package-lock.json
-my-app/backend/package-lock.json
-node_modules/.package-lock.json
-my-app/backend/package-lock.json
+# Allow committing lockfiles (needed for CI caching and npm ci)
+# Root lockfile
+# package-lock.json
+# Backend lockfile
+# my-app/backend/package-lock.json
 
-package-lock.json
 # package.json
 
 # Ignore root node_modules

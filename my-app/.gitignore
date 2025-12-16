@@ -56,7 +56,7 @@ pnpm-lock.yaml
 # Backend package files
 # Allow committing backend package.json for server dependencies
 !/backend/package.json
-/backend/package-lock.json
+!/backend/package-lock.json
 
 # Backend local database files
 /backend/.mongo-data/
