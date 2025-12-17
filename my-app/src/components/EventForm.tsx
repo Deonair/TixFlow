@@ -29,6 +29,7 @@ function EventForm() {
   const [ticketErrors, setTicketErrors] = useState<TicketTypeError[]>([]);
 
   const [errors, setErrors] = useState<Partial<EventFormData>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
 
@@ -91,6 +92,7 @@ function EventForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGeneralError(null);
     if (!validateForm()) return;
 
     const dateIso = formData.time
@@ -115,8 +117,20 @@ function EventForm() {
       });
 
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Request failed: ${res.status}`);
+        let errorMsg = `Request failed: ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data.message) errorMsg = data.message;
+          if (data.errors) {
+            setErrors(prev => ({ ...prev, ...data.errors }));
+            return; // Stop if we have field errors
+          }
+        } catch {
+          // If JSON parse fails, try text
+          const text = await res.text();
+          if (text) errorMsg = text;
+        }
+        throw new Error(errorMsg);
       }
       const data = await res.json();
       const origin = typeof window !== 'undefined' ? window.location.origin : '';

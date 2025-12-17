@@ -12,6 +12,7 @@ const UserSettings = () => {
   const [pwConfirm, setPwConfirm] = useState('')
   const [saveLoading, setSaveLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveFieldErrors, setSaveFieldErrors] = useState<Partial<Record<'name' | 'email' | 'password', string>>>({})
   const [saveOk, setSaveOk] = useState(false)
   const [kvk, setKvk] = useState('')
   const [btw, setBtw] = useState('')
@@ -24,7 +25,6 @@ const UserSettings = () => {
   const [payError, setPayError] = useState<string | null>(null)
   const [payOk, setPayOk] = useState(false)
   const [payFieldErrors, setPayFieldErrors] = useState<Partial<Record<'organization' | 'iban' | 'kvk' | 'btw' | 'billingContact', string>>>({})
-  // KVK verificatie UI verwijderd
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +46,7 @@ const UserSettings = () => {
           setBtwLocked(!!data?.btw)
         }
       } catch {
-        // negeer fouten hier; formulier blijft bruikbaar
+        void 0
       }
     }
     loadMe()
@@ -134,8 +134,11 @@ const UserSettings = () => {
                     if (!res.ok) {
                       let msg = 'Opslaan mislukt'
                       try {
-                        const data = await res.json() as { message?: string }
+                        const data = await res.json() as { message?: string; errors?: any }
                         msg = data?.message || msg
+                        if (data?.errors) {
+                          setSaveFieldErrors(data.errors)
+                        }
                       } catch (err) { void err }
                       setSaveError(msg)
                       return
@@ -236,9 +239,7 @@ const UserSettings = () => {
                         const data = await res.json() as { message?: string; errors?: Partial<Record<'organization' | 'iban' | 'kvk' | 'btw' | 'billingContact', string>> }
                         msg = data?.message || msg
                         if (data?.errors) setPayFieldErrors(data.errors)
-                      } catch {
-                        console.warn('Kon foutdetails niet lezen uit response')
-                      }
+                      } catch { void 0 }
                       setPayError(msg)
                       return
                     }
@@ -249,9 +250,7 @@ const UserSettings = () => {
                     setBtw(updated?.btw || '')
                     setOrgPay(updated?.organization || '')
                     setContact(updated?.billingContact || '')
-                    if (updated?.kvk) {
-                      setKvkLocked(true)
-                    }
+                    if (kvk) setKvkLocked(true)
                     if (btw) setBtwLocked(true)
                     setPayOk(true)
                   } finally {

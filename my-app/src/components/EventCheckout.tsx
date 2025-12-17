@@ -37,6 +37,7 @@ const EventCheckout = () => {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; email?: string }>({})
+  const [generalError, setGeneralError] = useState<string | null>(null)
 
   const total = useMemo(() => {
     return selections.reduce((sum, s) => sum + (s.price ?? 0) * (s.qty ?? 0), 0)
@@ -111,6 +112,11 @@ const EventCheckout = () => {
               <p className="mt-1 text-sm text-gray-600">Vul je gegevens in om door te gaan naar betalen.</p>
             </div>
             <form onSubmit={onSubmit} className="p-6 space-y-4">
+              {generalError && (
+                <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
+                  {generalError}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2" htmlFor="firstName">Voornaam *</label>

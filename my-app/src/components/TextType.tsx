@@ -121,7 +121,7 @@ const TextType: React.FC<TextTypeProps> = ({
 
           setCurrentTextIndex((prev) => (prev + 1) % textArray.length)
           setCurrentCharIndex(0)
-          timeout = window.setTimeout(() => {}, pauseDuration)
+          timeout = window.setTimeout(() => { }, pauseDuration)
         } else {
           timeout = window.setTimeout(() => {
             setDisplayedText((prev) => prev.slice(0, -1))

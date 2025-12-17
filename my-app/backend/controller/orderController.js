@@ -76,7 +76,7 @@ export const exportOrdersCsv = async (req, res) => {
       if (end) q['createdAt']['$lte'] = new Date(String(end))
     }
     const orders = await Order.find(q).sort({ createdAt: -1 }).lean()
-    const header = ['createdAt','customerEmail','status','amountTotal','currency','items'].join(',')
+    const header = ['createdAt', 'customerEmail', 'status', 'amountTotal', 'currency', 'items'].join(',')
     const lines = orders.map(o => {
       const itemsStr = (o.items || []).map(i => `${i.name} x${i.quantity} @ ${i.unitAmount}`).join(' | ')
       return [o.createdAt?.toISOString(), o.customerEmail, o.status, o.amountTotal, o.currency, `"${itemsStr}"`].join(',')

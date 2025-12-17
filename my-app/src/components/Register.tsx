@@ -19,6 +19,7 @@ const Register = () => {
     confirm: ''
   })
   const [errors, setErrors] = useState<Partial<RegisterForm>>({})
+  const [generalError, setGeneralError] = useState<string | null>(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submitLoading, setSubmitLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -56,6 +57,7 @@ const Register = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setGeneralError(null)
     if (!validate()) return
     setSubmitLoading(true)
     try {
@@ -70,11 +72,15 @@ const Register = () => {
         })
       })
       if (!res.ok) {
-        let data: unknown = null
+        let data: any = null
         try { data = await res.json() } catch { console.warn('Kon serverfouten niet parsen') }
-        type ServerResp = { errors?: Partial<RegisterForm> }
+        type ServerResp = { errors?: Partial<RegisterForm>; message?: string }
         const serverErrors = (data as ServerResp)?.errors || {}
-        setErrors((prev) => ({ ...prev, ...serverErrors }))
+        if (Object.keys(serverErrors).length > 0) {
+          setErrors((prev) => ({ ...prev, ...serverErrors }))
+        } else {
+          setGeneralError((data as ServerResp)?.message || 'Er is een fout opgetreden bij het registreren.')
+        }
         return
       }
       localStorage.setItem('hasRegistered', '1')
@@ -121,6 +127,11 @@ const Register = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Registreer als organisator</h1>
           <p className="mt-1 text-sm text-gray-600">Maak een beheeraccount aan om events te organiseren.</p>
         </div>
+        {generalError && (
+          <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
+            {generalError}
+          </div>
+        )}
         <form onSubmit={onSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="w-full">

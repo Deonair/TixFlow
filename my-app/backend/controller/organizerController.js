@@ -15,7 +15,7 @@ export const registerOrganizer = async (req, res) => {
     if (!passStr || passStr.length < 8) errs.password = 'password too short'
     if (Object.keys(errs).length) return res.status(400).json({ message: 'Validation error', errors: errs })
     const exists = await Organizer.findOne({ email: emailStr })
-    if (exists) return res.status(409).json({ message: 'Email already registered' })
+    if (exists) return res.status(409).json({ message: 'Email already registered', errors: { email: 'Dit e-mailadres is al in gebruik' } })
     const hash = await bcrypt.hash(passStr, 10)
     const doc = await Organizer.create({ name: nameStr, email: emailStr, organization: orgStr, passwordHash: hash })
     return res.status(201).json({ id: doc._id, name: doc.name, email: doc.email, organization: doc.organization })

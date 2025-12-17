@@ -20,7 +20,12 @@ const Login = () => {
         body: JSON.stringify({ email, password })
       })
       if (!res.ok) {
-        setError('Onjuiste inloggegevens')
+        let msg = 'Onjuiste inloggegevens'
+        try {
+          const data = await res.json()
+          if (data?.message) msg = data.message
+        } catch { void 0 }
+        setError(msg)
         return
       }
       // Navigeer naar dashboard
