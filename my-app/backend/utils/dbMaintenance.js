@@ -1,4 +1,3 @@
-
 import fs from 'fs'
 import path from 'path'
 
@@ -18,31 +17,31 @@ export const ensureDatabaseIntegrity = async (Order, Ticket) => {
     // 1. Vind dubbele orders op basis van stripeSessionId
     // We groeperen op stripeSessionId en kijken welke vaker dan 1x voorkomen
     const duplicates = await Order.aggregate([
-      { 
-        $group: { 
-          _id: "$stripeSessionId", 
-          count: { $sum: 1 }, 
+      {
+        $group: {
+          _id: "$stripeSessionId",
+          count: { $sum: 1 },
           ids: { $push: "$_id" } // Verzamel alle _id's van de duplicaten
-        } 
+        }
       },
-      { 
-        $match: { 
+      {
+        $match: {
           count: { $gt: 1 },
           _id: { $ne: null } // Negeer orders zonder session id (zouden er niet moeten zijn)
-        } 
+        }
       }
     ])
 
     let removedCount = 0
-    
+
     if (duplicates.length > 0) {
       log(`Found ${duplicates.length} sets of duplicate orders. Cleaning up...`)
-      
+
       for (const dup of duplicates) {
         // Sorteer op ID (MongoDB _id bevat timestamp). De eerste is de oudste.
         // We behouden de oudste (originele) en verwijderen de nieuwere (foutieve duplicaten).
-        const [keep, ...remove] = dup.ids.sort() 
-        
+        const [keep, ...remove] = dup.ids.sort()
+
         if (remove.length > 0) {
           log(`Fixing session ${dup._id}: Keeping ${keep}, removing ${remove.length} duplicates: ${remove.join(', ')}`)
           await Order.deleteMany({ _id: { $in: remove } })
@@ -55,7 +54,13 @@ export const ensureDatabaseIntegrity = async (Order, Ticket) => {
     }
 
     // 2. Forceer indexen nu de duplicaten weg zijn
-    log('Syncing indexes to ensure uniqueness guarantees...')
+    log('Dropping and re-syncing indexes to ensure uniqueness guarantees...')
+    try {
+      await Order.collection.dropIndex('stripeSessionId_1')
+    } catch (e) {
+      log(`Index drop skipped (maybe didn't exist): ${e.message}`)
+    }
+
     await Order.syncIndexes()
     await Ticket.syncIndexes()
 

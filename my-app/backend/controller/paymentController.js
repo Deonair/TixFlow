@@ -199,97 +199,88 @@ async function processPaidSession(expanded, source = 'unknown') {
       status: 'paid',
     }
 
-    const result = await Order.findOneAndUpdate(
-      { stripeSessionId: expanded.id },
-      { $setOnInsert: orderData },
-      { upsert: true, new: true, includeResultMetadata: true }
-    )
-
-    const orderDoc = result.value
-    // Als updatedExisting true is, bestond de order al -> stop.
-    if (result.lastErrorObject?.updatedExisting) {
-      const msgAtomic = `[Payment] Order ${expanded.id} already processed (atomic upsert): ${orderDoc._id}`
-      console.log(msgAtomic)
-      logToDebugFile(msgAtomic)
-      return { status: 'already_processed', orderId: orderDoc._id }
+    let orderDoc = null
+    try {
+      // PROBEER 1: Create (faalt als duplicate key)
+      orderDoc = await Order.create(orderData)
+    } catch (err) {
+      if (err.code === 11000 || err.message?.includes('duplicate key')) {
+        // Race condition: order bestaat al. Haal hem op.
+        console.log(`[Payment] Race condition caught for session ${expanded.id}. Fetching existing order.`)
+        orderDoc = await Order.findOne({ stripeSessionId: expanded.id })
+      } else {
+        throw err
+      }
     }
 
-    const msgNew = `[Payment] New order created via ${source}. OrderID: ${orderDoc._id}. Starting ticket generation...`
+    if (!orderDoc) {
+      // Should not happen unless DB is very weird
+      throw new Error('Failed to obtain order document')
+    }
+
+    const msgNew = `[Payment] Order processing via ${source}. OrderID: ${orderDoc._id}.`
     console.log(msgNew)
     logToDebugFile(msgNew)
 
-    // Dubbele check: als er op magische wijze toch 2 orders zijn (race condition zonder unieke index)
-    // dan willen we niet OOK nog tickets maken voor de tweede.
-    const allOrders = await Order.find({ stripeSessionId: expanded.id }).sort({ _id: 1 })
-    if (allOrders.length > 1) {
-      const master = allOrders[0]
-      const isMaster = String(master._id) === String(orderDoc._id)
+    // CHECK: Zijn tickets al gemaakt voor DEZE order?
+    const existingTickets = await Ticket.find({ order: orderDoc._id }).lean()
+    if (existingTickets.length > 0) {
+      const msgDone = `[Payment] Tickets already exist for Order ${orderDoc._id}. Count: ${existingTickets.length}.`
+      console.log(msgDone)
+      logToDebugFile(msgDone)
 
-      const msgCrit = `[Payment] CRITICAL: Multiple orders detected for session ${expanded.id}. Count: ${allOrders.length}. Am I master? ${isMaster}`
-      console.error(msgCrit)
-      logToDebugFile(msgCrit)
-
-      if (!isMaster) {
-        logToDebugFile(`[Payment] I am a duplicate (Master: ${master._id}). Deleting myself (${orderDoc._id}) and aborting.`)
-        // Verwijder deze duplicaat order direct om DB schoon te houden
-        await Order.findByIdAndDelete(orderDoc._id).catch(e => console.error('Delete duplicate failed', e))
-        return { status: 'already_processed', orderId: master._id }
+      // Als email nog niet verstuurd is, probeer alsnog (retry logic)
+      if (!orderDoc.emailSent) {
+        logToDebugFile(`[Payment] Tickets exist but emailSent=false. Retrying email...`)
+        // Ga door naar email block, maar skip ticket creation
+      } else {
+        return { status: 'already_processed', orderId: orderDoc._id }
       }
-
-      logToDebugFile(`[Payment] I am the master (${orderDoc._id}). Proceeding with ticket generation.`)
     }
 
-    // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
-    // START FIX: Email Lock & Global Check
-    // Eerst controleren of er AL een email is verstuurd voor deze sessie (zelfs via een ander order-ID)
-    const alreadySent = await Order.findOne({ stripeSessionId: expanded.id, emailSent: true });
-    if (alreadySent) {
-      const msgSent = `[Payment] Email already sent for session ${expanded.id} (via Order ${alreadySent._id}). Skipping email for ${orderDoc._id}.`;
-      console.log(msgSent);
-      logToDebugFile(msgSent);
-      return { status: 'processed', orderId: orderDoc._id, ticketsCount: 0, message: 'Email already sent' };
-    }
+    // LOCK: Als we nog geen tickets hebben, zorg dat WIJ de enige zijn die ze maken.
+    // We gebruiken emailSent (of een aparte lock flag) niet hier, omdat Ticket.create de bron van waarheid is.
+    // Als we hier zijn, hebben we 0 tickets gezien.
 
-    // Probeer de lock te verkrijgen op de huidige order
-    const lockedOrder = await Order.findOneAndUpdate(
-      { _id: orderDoc._id, emailSent: false },
-      { $set: { emailSent: true } },
-      { new: true }
-    );
+    // START Ticket Generation (ONLY IF EMPTY)
+    let tickets = []
+    if (existingTickets.length > 0) {
+      tickets = existingTickets
+    } else {
+      for (const li of items) {
+        const qty = Math.max(0, Number(li.quantity) || 0)
+        for (let i = 0; i < qty; i++) {
+          let token = crypto.randomBytes(4).toString('hex')
+          try {
+            let tries = 0
+            while (tries < 5) {
+              const exists = await Ticket.findOne({ token }).lean()
+              if (!exists) break
+              token = crypto.randomBytes(4).toString('hex')
+              tries++
+            }
+          } catch (_) { }
 
-    if (!lockedOrder) {
-      const msgLock = `[Payment] Could not acquire email lock for Order ${orderDoc._id}. Email likely already being sent.`;
-      console.log(msgLock);
-      logToDebugFile(msgLock);
-      return { status: 'processed', orderId: orderDoc._id, ticketsCount: 0, message: 'Email lock failed' };
-    }
-    // END FIX: Email Lock
-
-    const tickets = []
-    for (const li of items) {
-      const qty = Math.max(0, Number(li.quantity) || 0)
-      for (let i = 0; i < qty; i++) {
-        let token = crypto.randomBytes(4).toString('hex')
-        try {
-          let tries = 0
-          while (tries < 5) {
-            const exists = await Ticket.findOne({ token }).lean()
-            if (!exists) break
-            token = crypto.randomBytes(4).toString('hex')
-            tries++
-          }
-        } catch (_) { }
-
-        const ticket = await Ticket.create({
-          event: eventDoc._id,
-          order: orderDoc._id,
-          attendeeEmail: orderDoc.customerEmail,
-          ticketTypeName: li.typeName,
-          token,
-        })
-        console.log(`[Payment] Ticket created: ${ticket.token} for Order ${orderDoc._id}`)
-        tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
+          // Double check inside loop? Nee, Mongo create is atomic.
+          const ticket = await Ticket.create({
+            event: eventDoc._id,
+            order: orderDoc._id,
+            attendeeEmail: orderDoc.customerEmail,
+            ticketTypeName: li.typeName,
+            token,
+          })
+          tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
+        }
       }
+      logToDebugFile(`[Payment] Generated ${tickets.length} new tickets for Order ${orderDoc._id}`)
+    }
+
+    // EMAIL SENDING
+    // Check lock again just to be safe regarding email sending
+    const freshOrder = await Order.findById(orderDoc._id)
+    if (freshOrder.emailSent) {
+      logToDebugFile(`[Payment] Email already sent flag is true. Skipping email.`)
+      return { status: 'processed', orderId: orderDoc._id }
     }
 
     try {
@@ -306,13 +297,16 @@ async function processPaidSession(expanded, source = 'unknown') {
           items,
         },
       })
+
+      // Update flag
+      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: true })
+
       console.log('[Payment] Email sent successfully.')
       logToDebugFile('[Payment] Email sent successfully.')
     } catch (mailErr) {
       console.error('E-mail verzenden mislukt:', mailErr)
       logToDebugFile(`[Payment] Email error: ${mailErr.message}`)
-      // Reset lock zodat we het later nog eens kunnen proberen
-      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: false });
+      // We zetten emailSent NIET op true, zodat retry mogelijk is
     }
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
