@@ -111,7 +111,7 @@ export const handleStripeWebhook = async (req, res) => {
       case 'checkout.session.completed': {
         const session = event.data.object
         const expanded = await s.checkout.sessions.retrieve(session.id, { expand: ['line_items'] })
-        await processPaidSession(expanded)
+        await processPaidSession(expanded, 'webhook')
         break
       }
       default:
@@ -129,8 +129,9 @@ export default { createCheckoutSession, handleStripeWebhook }
 
 // --- Herbruikbare verwerkingslogica en fallback endpoint ---
 
-async function processPaidSession(expanded) {
+async function processPaidSession(expanded, source = 'unknown') {
   try {
+    console.log(`[Payment] Start processing session ${expanded.id} via ${source}`)
     const lineItems = expanded?.line_items?.data || []
     const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
     const { default: Event } = await import('../models/eventModel.js')
@@ -139,6 +140,14 @@ async function processPaidSession(expanded) {
 
     // Zorg dat indexen bestaan (belangrijk voor unieke stripeSessionId)
     await Order.init().catch(err => console.error('Order index init failed:', err))
+
+    // Log indexen ter controle
+    try {
+      const indexes = await Order.listIndexes()
+      console.log('[Payment] Current Order indexes:', JSON.stringify(indexes))
+    } catch (idxErr) {
+      console.warn('[Payment] Could not list indexes:', idxErr.message)
+    }
 
     const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
     if (!eventDoc) {
@@ -182,9 +191,21 @@ async function processPaidSession(expanded) {
     const orderDoc = result.value
     // Als updatedExisting true is, bestond de order al -> stop.
     if (result.lastErrorObject?.updatedExisting) {
-      console.log('Order already processed (atomic upsert):', orderDoc._id)
+      console.log(`[Payment] Order ${expanded.id} already processed (atomic upsert):`, orderDoc._id)
       return { status: 'already_processed', orderId: orderDoc._id }
     }
+
+    console.log(`[Payment] New order created via ${source}. OrderID: ${orderDoc._id}. Starting ticket generation...`)
+
+    // Paranoid check: zijn er meerdere orders met dit session ID?
+    try {
+      const duplicates = await Order.find({ stripeSessionId: expanded.id }).select('_id createdAt').lean()
+      if (duplicates.length > 1) {
+        console.error(`[Payment] CRITICAL: Multiple orders found for session ${expanded.id}!`, duplicates)
+        // We stoppen hier NIET hard, want we hebben net de order aangemaakt en tickets moeten nog.
+        // Maar dit bevestigt wel dat de unieke index ontbreekt of faalt.
+      }
+    } catch (dupErr) { console.error('[Payment] Duplicate check error:', dupErr) }
 
     // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
     const tickets = []
@@ -245,7 +266,7 @@ export const confirmCheckoutSession = async (req, res) => {
       // Stripe kan ook 'open' of 'expired' teruggeven; alleen bij complete verwerken
       return res.status(400).json({ error: 'Sessiestatus niet voltooid', status: expanded?.status })
     }
-    const result = await processPaidSession(expanded)
+    const result = await processPaidSession(expanded, 'client-confirm')
     return res.json(result)
   } catch (err) {
     console.error('confirmCheckoutSession error:', err)
