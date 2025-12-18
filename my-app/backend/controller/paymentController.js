@@ -240,6 +240,31 @@ async function processPaidSession(expanded, source = 'unknown') {
     }
 
     // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
+    // START FIX: Email Lock & Global Check
+    // Eerst controleren of er AL een email is verstuurd voor deze sessie (zelfs via een ander order-ID)
+    const alreadySent = await Order.findOne({ stripeSessionId: expanded.id, emailSent: true });
+    if (alreadySent) {
+      const msgSent = `[Payment] Email already sent for session ${expanded.id} (via Order ${alreadySent._id}). Skipping email for ${orderDoc._id}.`;
+      console.log(msgSent);
+      logToDebugFile(msgSent);
+      return { status: 'processed', orderId: orderDoc._id, ticketsCount: 0, message: 'Email already sent' };
+    }
+
+    // Probeer de lock te verkrijgen op de huidige order
+    const lockedOrder = await Order.findOneAndUpdate(
+      { _id: orderDoc._id, emailSent: false },
+      { $set: { emailSent: true } },
+      { new: true }
+    );
+
+    if (!lockedOrder) {
+      const msgLock = `[Payment] Could not acquire email lock for Order ${orderDoc._id}. Email likely already being sent.`;
+      console.log(msgLock);
+      logToDebugFile(msgLock);
+      return { status: 'processed', orderId: orderDoc._id, ticketsCount: 0, message: 'Email lock failed' };
+    }
+    // END FIX: Email Lock
+
     const tickets = []
     for (const li of items) {
       const qty = Math.max(0, Number(li.quantity) || 0)
@@ -286,6 +311,8 @@ async function processPaidSession(expanded, source = 'unknown') {
     } catch (mailErr) {
       console.error('E-mail verzenden mislukt:', mailErr)
       logToDebugFile(`[Payment] Email error: ${mailErr.message}`)
+      // Reset lock zodat we het later nog eens kunnen proberen
+      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: false });
     }
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }

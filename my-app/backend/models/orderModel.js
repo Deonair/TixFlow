@@ -15,6 +15,7 @@ const orderSchema = new mongoose.Schema({
   stripeSessionId: { type: String, required: true, index: true, unique: true },
   paymentIntentId: { type: String },
   status: { type: String, enum: ['paid', 'created', 'canceled', 'refunded'], default: 'paid', index: true },
+  emailSent: { type: Boolean, default: false },
 }, { timestamps: true })
 
 export default mongoose.model('Order', orderSchema)
