@@ -30,6 +30,8 @@ function AdminDashboard() {
   const [redeemMessage, setRedeemMessage] = useState<string | null>(null)
   const [isCheckinOpen, setIsCheckinOpen] = useState(false)
   const [justRedeemed, setJustRedeemed] = useState(false) // nieuw
+  const [dbFixLoading, setDbFixLoading] = useState(false)
+  const [dbFixMsg, setDbFixMsg] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -258,6 +260,25 @@ function AdminDashboard() {
     }, 1500)
   }
 
+  const runDbFix = async () => {
+    if (!confirm('Weet je zeker dat je de database wilt opschonen? Dit verwijdert dubbele orders en herstelt indexen.')) return
+    setDbFixLoading(true)
+    setDbFixMsg(null)
+    try {
+      const res = await fetch('/api/admin/maintenance/db-check', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.ok) {
+        setDbFixMsg(`Klaar! Duplicaten verwijderd: ${data.result.removed}. Index actief: ${data.result.indexVerified ? 'JA' : 'NEE'}`)
+      } else {
+        setDbFixMsg(`Fout: ${data.error || 'Onbekende fout'}`)
+      }
+    } catch (e) {
+      setDbFixMsg(`Netwerkfout: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setDbFixLoading(false)
+    }
+  }
+
   return (
     <>
       <section className="mx-auto max-w-6xl px-3 sm:px-6">
@@ -277,6 +298,20 @@ function AdminDashboard() {
               Bekijk alle events
             </Link>
           </div>
+        </div>
+
+        {/* DB Repair Section (Superadmin Only - visible for now as button) */}
+        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+          <h3 className="font-semibold text-yellow-800 mb-2">Systeem Onderhoud</h3>
+          <p className="text-sm text-yellow-700 mb-3">Gebruik dit alleen als er problemen zijn met dubbele orders.</p>
+          <button
+            onClick={runDbFix}
+            disabled={dbFixLoading}
+            className="px-3 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+          >
+            {dbFixLoading ? 'Bezig...' : 'Repareer Database & Indexen'}
+          </button>
+          {dbFixMsg && <div className="mt-2 text-sm font-medium text-gray-800">{dbFixMsg}</div>}
         </div>
 
         {/* KPI kaarten */}

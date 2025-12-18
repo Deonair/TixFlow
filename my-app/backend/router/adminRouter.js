@@ -5,6 +5,8 @@ import Order from '../models/orderModel.js'
 import Ticket from '../models/ticketModel.js'
 import { requireSuperAdmin, requireAuth } from '../middleware/authMiddleware.js'
 
+import { ensureDatabaseIntegrity } from '../utils/dbMaintenance.js'
+
 const router = express.Router()
 
 // Superadmin login met env credentials; zet sessieveld superadmin
@@ -32,6 +34,15 @@ router.post('/logout', requireSuperAdmin, async (req, res) => {
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Superadmin logout error', error: error.message })
+  }
+})
+
+router.post('/maintenance/db-check', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await ensureDatabaseIntegrity(Order, Ticket)
+    res.json({ ok: true, result })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
   }
 })
 
