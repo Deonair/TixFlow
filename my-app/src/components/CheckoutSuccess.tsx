@@ -20,6 +20,11 @@ const CheckoutSuccess = () => {
         console.warn('Kon URL niet opschonen na checkout')
       }
       setStatus('processing')
+
+      // FIX: Wacht 2 seconden om race conditions met de webhook te voorkomen.
+      // De webhook is meestal sneller. Als we hier te snel zijn, proberen we tegelijk tickets te maken.
+      await new Promise(r => setTimeout(r, 2000))
+
       try {
         const res = await fetch(`/api/payments/confirm/${encodeURIComponent(sessionId)}`)
         const data = await res.json()

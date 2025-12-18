@@ -155,7 +155,18 @@ async function processPaidSession(expanded, source = 'unknown') {
     const { default: Event } = await import('../models/eventModel.js')
     const { default: Ticket } = await import('../models/ticketModel.js')
 
-    const existingOrder = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+    let existingOrder = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+
+    // TRUUC: Als de client checkt, maar de order bestaat al zonder email (webhook is bezig?),
+    // wacht dan even en check opnieuw. Dit geeft de webhook voorrang.
+    if (existingOrder && !existingOrder.emailSent && source === 'client-confirm') {
+      const msgWait = `[Payment] Order exists but email not sent. Client waiting 2s for Webhook to finish...`
+      console.log(msgWait)
+      logToDebugFile(msgWait)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      existingOrder = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+    }
+
     if (existingOrder) {
       const msgExists = `[Payment] Order ${expanded.id} already exists (pre-check). OrderID: ${existingOrder._id}`
       console.log(msgExists)
