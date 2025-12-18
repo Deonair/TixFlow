@@ -76,6 +76,8 @@ function TicketDebugList() {
 
 function LogViewer() {
   const [logs, setLogs] = useState<string[]>([])
+  const [fixing, setFixing] = useState(false)
+  const [fixResult, setFixResult] = useState('')
 
   const load = async () => {
     try {
@@ -87,11 +89,37 @@ function LogViewer() {
     }
   }
 
+  const fixDb = async () => {
+    if (!confirm('LET OP: Dit verwijdert dubbele orders en forceert indexen. Weet je het zeker?')) return
+    setFixing(true)
+    setFixResult('')
+    try {
+      const res = await fetch('/api/admin/debug/fix-db', { method: 'POST' })
+      const data = await res.json()
+      setFixResult(data.message || 'Geen bericht')
+      load() // logs verversen
+    } catch (e: any) {
+      setFixResult('Fout: ' + e.message)
+    } finally {
+      setFixing(false)
+    }
+  }
+
   useEffect(() => { load() }, [])
 
   return (
     <div>
-      <button onClick={load} className="mb-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">Verversen</button>
+      <div className="flex justify-between items-center mb-2">
+        <button onClick={load} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">Verversen</button>
+        <button
+          onClick={fixDb}
+          disabled={fixing}
+          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs font-bold"
+        >
+          {fixing ? 'Bezig...' : '🛠️ Repareer Database & Indexen'}
+        </button>
+      </div>
+      {fixResult && <div className="mb-2 p-2 bg-blue-900 text-blue-100 text-xs rounded">{fixResult}</div>}
       <div className="h-48 overflow-y-auto bg-black p-2 rounded border border-gray-700">
         {logs.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap mb-1 border-b border-gray-800 pb-1">{l}</div>

@@ -4,6 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import fs from 'fs';
+import path from 'path';
 import eventRouter from './router/eventRouter.js';
 import organizerRouter from './router/organizerRouter.js';
 import paymentRouter from './router/paymentRouter.js';
@@ -44,7 +46,16 @@ if (isProd && (!dbUri || dbUri.trim() === '')) {
   process.exit(1);
 }
 
+const logBoot = (msg) => {
+  try {
+    const logPath = path.resolve(process.cwd(), 'debug-payments.log')
+    const line = `[BOOT] ${new Date().toISOString()} ${msg}\n`
+    fs.appendFileSync(logPath, line)
+  } catch (_) { }
+}
+
 async function connectMongo() {
+  logBoot(`Starting DB connection. isProd=${isProd}, dbUri=${dbUri.replace(/:([^:@]{1,})@/, ':****@')}`)
   // In dev: als expliciet aangezet, start in-memory
   if (!isProd && preferMemory) {
     console.warn('Using in-memory MongoDB for development');
@@ -55,10 +66,30 @@ async function connectMongo() {
     return;
   }
   try {
+    console.log(`[DB] Attempting to connect to MongoDB at ${dbUri.replace(/:([^:@]{1,})@/, ':****@')}...`);
     await mongoose.connect(dbUri, connectOpts);
-    console.log('Connected to MongoDB');
+    console.log('[DB] Connected to MongoDB');
+    logBoot('Connected to MongoDB successfully.')
+
+    try {
+      const { default: Order } = await import('./models/orderModel.js');
+      const { default: Ticket } = await import('./models/ticketModel.js');
+      console.log('[DB] Ensuring indexes...');
+      await Order.syncIndexes();
+      await Ticket.syncIndexes();
+      logBoot('Indexes synced successfully.')
+      const orderIndexes = await Order.listIndexes();
+      const ticketIndexes = await Ticket.listIndexes();
+      console.log('[DB] Order indexes:', JSON.stringify(orderIndexes.map(i => i.name)));
+      console.log('[DB] Ticket indexes:', JSON.stringify(ticketIndexes.map(i => i.name)));
+    } catch (idxErr) {
+      console.error('[DB] Error ensuring indexes:', idxErr);
+      logBoot(`Error ensuring indexes: ${idxErr.message}`)
+    }
+
   } catch (err) {
     console.error('MongoDB connection error:', err);
+    logBoot(`MongoDB connection error: ${err.message}`)
     // Val alleen terug op in-memory in development als expliciet toegestaan
     if (!isProd) {
       if (preferMemory || devFallback) {
@@ -74,12 +105,14 @@ async function connectMongo() {
     } else {
       if (prodFallback) {
         console.warn('Production MongoDB failed; falling back to in-memory due to PROD_IN_MEMORY_FALLBACK=true');
+        logBoot('WARNING: Falling back to in-memory DB in PRODUCTION!')
         const mongod = await MongoMemoryServer.create();
         dbUri = mongod.getUri();
         await mongoose.connect(dbUri, connectOpts);
         console.log('Connected to in-memory MongoDB (production fallback)');
       } else {
         console.error('Production MongoDB connection failed; exiting without in-memory fallback');
+        logBoot('FATAL: Production DB failed and no fallback allowed. Exiting.')
         process.exit(1);
       }
     }
@@ -141,18 +174,18 @@ app.get('/api/health', async (_req, res) => {
   const state = mongoose.connection.readyState; // 0:disconnected 1:connected
   let stats = {};
   try {
-     const { default: Ticket } = await import('./models/ticketModel.js');
-     const { default: Order } = await import('./models/orderModel.js');
-     stats = {
-        tickets: await Ticket.countDocuments(),
-        orders: await Order.countDocuments(),
-        dbName: mongoose.connection.name,
-        host: mongoose.connection.host,
-     };
+    const { default: Ticket } = await import('./models/ticketModel.js');
+    const { default: Order } = await import('./models/orderModel.js');
+    stats = {
+      tickets: await Ticket.countDocuments(),
+      orders: await Order.countDocuments(),
+      dbName: mongoose.connection.name,
+      host: mongoose.connection.host,
+    };
   } catch (e) { stats.error = e.message; }
-  
-  res.json({ 
-    ok: true, 
+
+  res.json({
+    ok: true,
     db: state === 1 ? 'connected' : 'not_connected',
     readyState: state,
     stats

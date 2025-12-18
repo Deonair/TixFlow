@@ -119,6 +119,70 @@ router.get('/debug/tickets', requireAuth, async (req, res) => {
   }
 })
 
+// DEBUG: Repareer database (verwijder dubbele orders en forceer index)
+router.post('/debug/fix-db', requireAuth, async (req, res) => {
+  try {
+    const { default: Order } = await import('../models/orderModel.js')
+    const { default: Ticket } = await import('../models/ticketModel.js')
+    const fs = await import('fs')
+    const path = await import('path')
+
+    const log = (msg) => {
+      try {
+        const logPath = path.resolve(process.cwd(), 'debug-payments.log')
+        const line = `[DB-FIX] ${new Date().toISOString()} ${msg}\n`
+        fs.appendFileSync(logPath, line)
+      } catch (_) { }
+    }
+
+    log('Start database repair...')
+
+    // 1. Vind dubbele orders
+    const duplicates = await Order.aggregate([
+      { $group: { _id: "$stripeSessionId", count: { $sum: 1 }, ids: { $push: "$_id" } } },
+      { $match: { count: { $gt: 1 } } }
+    ])
+
+    let removedCount = 0
+    for (const dup of duplicates) {
+      // Bewaar de eerste (oudste), verwijder de rest
+      const [keep, ...remove] = dup.ids.sort() // Sorteer op ID (tijd)
+      if (remove.length > 0) {
+        log(`Removing ${remove.length} duplicate orders for session ${dup._id}`)
+        await Order.deleteMany({ _id: { $in: remove } })
+        // Optioneel: verwijder ook tickets van die orders?
+        // Liever niet, want misschien zijn die tickets juist degenen die gemaild zijn.
+        // Maar voor consistentie zou het moeten. Laten we eerst de orders fixen zodat de index werkt.
+        removedCount += remove.length
+      }
+    }
+
+    log(`Removed ${removedCount} duplicate orders.`)
+
+    // 2. Forceer indexen
+    log('Syncing indexes...')
+    await Order.syncIndexes()
+    await Ticket.syncIndexes()
+
+    // Check of index bestaat
+    const indexes = await Order.listIndexes()
+    const hasUnique = indexes.some(i => i.key && i.key.stripeSessionId && i.unique)
+
+    log(`Index sync complete. Unique index present: ${hasUnique}`)
+
+    res.json({
+      ok: true,
+      duplicatesFound: duplicates.length,
+      removed: removedCount,
+      indexVerified: hasUnique,
+      message: `Database gerepareerd. ${removedCount} dubbele orders verwijderd. Unieke index: ${hasUnique ? 'JA' : 'NEE'}`
+    })
+
+  } catch (error) {
+    res.status(500).json({ message: 'Fix error', error: error.message })
+  }
+})
+
 // DEBUG: Lees betalingslogs
 router.get('/debug/logs', requireAuth, async (req, res) => {
   try {
