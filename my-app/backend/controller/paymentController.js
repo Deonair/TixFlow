@@ -236,17 +236,10 @@ async function processPaidSession(expanded, source = 'unknown') {
     // CHECK: Zijn tickets al gemaakt voor DEZE order?
     const existingTickets = await Ticket.find({ order: orderDoc._id }).lean()
     if (existingTickets.length > 0) {
-      const msgDone = `[Payment] Tickets already exist for Order ${orderDoc._id}. Count: ${existingTickets.length}.`
+      const msgDone = `[Payment] Tickets already exist for Order ${orderDoc._id}. Count: ${existingTickets.length}. Stopping to prevent duplicates.`
       console.log(msgDone)
       logToDebugFile(msgDone)
-
-      // Als email nog niet verstuurd is, probeer alsnog (retry logic)
-      if (!orderDoc.emailSent) {
-        logToDebugFile(`[Payment] Tickets exist but emailSent=false. Retrying email...`)
-        // Ga door naar email block, maar skip ticket creation
-      } else {
-        return { status: 'already_processed', orderId: orderDoc._id }
-      }
+      return { status: 'already_processed', orderId: orderDoc._id }
     }
 
     // LOCK: Als we nog geen tickets hebben, zorg dat WIJ de enige zijn die ze maken.

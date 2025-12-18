@@ -32,6 +32,28 @@ export default function SuperAdmin() {
   const [stats, setStats] = useState<{ organizersCount: number; eventsCount: number; liveEventsCount: number; upcomingEventsCount: number; totalRevenueCents: number; totalTicketsSold: number; platformFeeCents: number; organizerEarningsCents: number } | null>(null)
   const [events, setEvents] = useState<Array<{ id: string; title: string; date: string; status: string; ownerName: string; ownerOrganization: string; capacity: number; ticketsSold: number; redeemedCount: number; revenueCents: number }>>([])
 
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false)
+  const [maintenanceResult, setMaintenanceResult] = useState<string | null>(null)
+
+  const runMaintenance = async () => {
+    if (!confirm('Dit zal dubbele orders verwijderen en de unieke index herstellen. Zeker weten?')) return
+    setMaintenanceLoading(true)
+    setMaintenanceResult(null)
+    try {
+      const res = await fetch('/api/admin/maintenance/db-check', { method: 'POST', credentials: 'include' })
+      const data = await res.json()
+      if (data.ok) {
+        setMaintenanceResult(`Succes! Duplicaten gevonden: ${data.result.duplicatesFound}. Verwijderd: ${data.result.removed}. Index actief: ${data.result.indexVerified ? 'JA' : 'NEE'}`)
+      } else {
+        setMaintenanceResult(`Fout: ${data.error || 'Onbekend'}`)
+      }
+    } catch (e) {
+      setMaintenanceResult(`Netwerkfout: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setMaintenanceLoading(false)
+    }
+  }
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
@@ -258,6 +280,29 @@ export default function SuperAdmin() {
           </div>
         </div>
       )}
+
+      {/* Systeem Onderhoud Sectie */}
+      <div className="mt-8 mb-8 p-6 bg-yellow-50 border border-yellow-200 rounded-xl">
+        <h2 className="text-lg font-semibold text-yellow-900">Systeem Onderhoud</h2>
+        <p className="mt-1 text-sm text-yellow-800">
+          Gebruik deze knop als gebruikers dubbele e-mails ontvangen of als de database consistentie gecontroleerd moet worden.
+          Dit verwijdert duplicaten en forceert de unieke index.
+        </p>
+        <div className="mt-4">
+          <button
+            onClick={runMaintenance}
+            disabled={maintenanceLoading}
+            className="inline-flex items-center rounded-md bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
+          >
+            {maintenanceLoading ? 'Bezig...' : 'Repareer Database & Indexen'}
+          </button>
+          {maintenanceResult && (
+            <div className="mt-2 p-3 bg-white border border-yellow-200 rounded text-sm font-mono text-gray-800">
+              {maintenanceResult}
+            </div>
+          )}
+        </div>
+      </div>
 
       {events.length > 0 && (
         <div id="events" className="mt-8">
