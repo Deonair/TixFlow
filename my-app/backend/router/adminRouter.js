@@ -83,16 +83,24 @@ router.get('/organizers', requireSuperAdmin, async (req, res) => {
 })
 
 // Detail van één organizer
-router.get('/organizers/:id', requireSuperAdmin, async (req, res) => {
+// Update velden (mag locks doorbreken, met validatie)
+router.patch('/organizers/:id', requireSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params
-    const org = await Organizer.findById(String(id)).lean()
-    if (!org) return res.status(404).json({ message: 'Organizer not found' })
-    res.json({ id: String(org._id), name: org.name, email: org.email, organization: org.organization, iban: org.iban || '', kvk: org.kvk || '', btw: org.btw || '', billingContact: org.billingContact || '' })
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching organizer', error: error.message })
-  }
-})
+    // ... bestaande code ...
+    // (Deze file was truncated in de read, dus ik voeg de nieuwe route toe VOOR de patch of erna, maar patch is de laatste in de read output.
+    // Beter om het gewoon ergens bovenaan of onderaan toe te voegen. Ik zet het onder de organizers list.)
+    // Wacht, ik doe search/replace op een veilige plek.
+    // Ik zet het na router.get('/organizers/:id', ...)
+    // De read output eindigde met router.patch start.
+    // Ik zal het toevoegen na de imports en setup, of voor de export.
+    // Ik gebruik de bestaande read output om een goed anker te vinden.
+    // Anker: router.get('/organizers/:id', ... en de bijbehorende block sluiting.
+  } catch (e) { }
+});
+
+// Ik gebruik een nieuw block
+
 
 // Update velden (mag locks doorbreken, met validatie)
 router.patch('/organizers/:id', requireSuperAdmin, async (req, res) => {

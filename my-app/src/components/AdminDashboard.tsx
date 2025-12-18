@@ -13,6 +13,67 @@ type EventItem = {
   ticketTypes?: TicketType[]
 }
 
+function TicketDebugList() {
+  const [tickets, setTickets] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true)
+    setErr('')
+    try {
+      const res = await fetch('/api/admin/debug/tickets')
+      if (!res.ok) throw new Error('Kon tickets niet laden')
+      const data = await res.json()
+      setTickets(data)
+    } catch (e: any) {
+      setErr(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Auto load on mount
+  useEffect(() => { load() }, [])
+
+  if (loading) return <div>Laden...</div>
+  if (err) return <div className="text-red-600">Error: {err}</div>
+  if (tickets.length === 0) return <div>Geen tickets gevonden in database.</div>
+
+  return (
+    <div className="overflow-x-auto">
+      <button onClick={load} className="mb-2 text-xs bg-yellow-200 px-2 py-1 rounded hover:bg-yellow-300">Verversen</button>
+      <table className="w-full text-xs text-left">
+        <thead>
+          <tr className="border-b border-yellow-200">
+            <th className="py-1">Aangemaakt</th>
+            <th className="py-1">Event</th>
+            <th className="py-1">Email</th>
+            <th className="py-1 font-mono">Token (Code)</th>
+            <th className="py-1">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map(t => (
+            <tr key={t._id} className="border-b border-yellow-100 hover:bg-yellow-100">
+              <td className="py-1">{new Date(t.createdAt).toLocaleString('nl-NL')}</td>
+              <td className="py-1">{t.event}</td>
+              <td className="py-1">{t.email}</td>
+              <td className="py-1 font-mono font-bold select-all bg-white px-1 rounded border border-gray-200">{t.token}</td>
+              <td className="py-1">
+                {t.redeemed
+                  ? <span className="text-green-600 font-bold">INGECHECKT</span>
+                  : <span className="text-gray-500">Open</span>
+                }
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function AdminDashboard() {
   const navigate = useNavigate()
   const [events, setEvents] = useState<EventItem[]>([])
