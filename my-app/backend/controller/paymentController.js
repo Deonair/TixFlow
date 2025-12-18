@@ -146,6 +146,7 @@ async function processPaidSession(expanded) {
     // Idempotent: maak geen dubbele orders aan
     const existing = await Order.findOne({ stripeSessionId: expanded.id }).lean()
     if (existing) {
+      console.log('Order already processed (found by ID):', existing._id)
       return { status: 'already_processed', orderId: existing._id }
     }
 
@@ -213,6 +214,16 @@ async function processPaidSession(expanded) {
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
   } catch (err) {
+    // Vang duplicate key error (E11000) af als 'success'
+    if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
+      console.warn('Order creation race condition caught (E11000). Assuming already processed.')
+      try {
+        const { default: Order } = await import('../models/orderModel.js')
+        const existing = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+        if (existing) return { status: 'already_processed', orderId: existing._id }
+      } catch (_) { }
+      return { status: 'already_processed' }
+    }
     console.error('processPaidSession error:', err)
     return { status: 'error', error: err?.message || String(err) }
   }

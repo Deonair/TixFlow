@@ -131,6 +131,7 @@ app.use('/api/payments', paymentRouter);
 // Orders & stats
 app.use('/api', orderRouter);
 // Tickets verify/redeem
+app.use('/api', ticketRouter);
 // Admin (superadmin only)
 // Superadmin routes
 app.use('/api/admin', adminRouter);
