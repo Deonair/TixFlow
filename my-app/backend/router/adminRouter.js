@@ -3,7 +3,7 @@ import Organizer from '../models/organizerModel.js'
 import Event from '../models/eventModel.js'
 import Order from '../models/orderModel.js'
 import Ticket from '../models/ticketModel.js'
-import { requireSuperAdmin } from '../middleware/authMiddleware.js'
+import { requireSuperAdmin, requireAuth } from '../middleware/authMiddleware.js'
 
 const router = express.Router()
 
@@ -95,7 +95,7 @@ router.get('/organizers/:id', requireSuperAdmin, async (req, res) => {
 })
 
 // DEBUG: Lijst laatste tickets om productie problemen te vinden
-router.get('/debug/tickets', requireSuperAdmin, async (req, res) => {
+router.get('/debug/tickets', requireAuth, async (req, res) => {
   try {
     const tickets = await Ticket.find()
       .sort({ createdAt: -1 })
@@ -120,7 +120,7 @@ router.get('/debug/tickets', requireSuperAdmin, async (req, res) => {
 })
 
 // DEBUG: Lees betalingslogs
-router.get('/debug/logs', requireSuperAdmin, async (req, res) => {
+router.get('/debug/logs', requireAuth, async (req, res) => {
   try {
     const fs = await import('fs')
     const path = await import('path')
