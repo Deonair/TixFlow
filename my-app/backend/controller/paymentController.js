@@ -137,17 +137,13 @@ async function processPaidSession(expanded) {
     const { default: Order } = await import('../models/orderModel.js')
     const { default: Ticket } = await import('../models/ticketModel.js')
 
+    // Zorg dat indexen bestaan (belangrijk voor unieke stripeSessionId)
+    await Order.init().catch(err => console.error('Order index init failed:', err))
+
     const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
     if (!eventDoc) {
       console.warn('Session verwerkt: event niet gevonden voor slug', clientRef)
       return { status: 'no_event' }
-    }
-
-    // Idempotent: maak geen dubbele orders aan
-    const existing = await Order.findOne({ stripeSessionId: expanded.id }).lean()
-    if (existing) {
-      console.log('Order already processed (found by ID):', existing._id)
-      return { status: 'already_processed', orderId: existing._id }
     }
 
     const items = lineItems.map(li => {
@@ -161,7 +157,9 @@ async function processPaidSession(expanded) {
       }
     })
 
-    const orderDoc = await Order.create({
+    // Atomic upsert om race conditions (dubbele e-mails) te voorkomen.
+    // We vertrouwen op de unieke index op stripeSessionId, maar findOneAndUpdate is atomair.
+    const orderData = {
       event: eventDoc._id,
       items,
       amountTotal: expanded.amount_total ?? 0,
@@ -170,8 +168,25 @@ async function processPaidSession(expanded) {
       stripeSessionId: expanded.id,
       paymentIntentId: expanded.payment_intent ? String(expanded.payment_intent) : undefined,
       status: 'paid',
-    })
+    }
 
+    // includeResultMetadata: true (Mongoose 7+) geeft { value, lastErrorObject, ok } terug
+    // upsert: true maakt het aan als het niet bestaat
+    // new: true geeft het document terug (of het nieuwe, of het bestaande)
+    const result = await Order.findOneAndUpdate(
+      { stripeSessionId: expanded.id },
+      { $setOnInsert: orderData },
+      { upsert: true, new: true, includeResultMetadata: true }
+    )
+
+    const orderDoc = result.value
+    // Als updatedExisting true is, bestond de order al -> stop.
+    if (result.lastErrorObject?.updatedExisting) {
+      console.log('Order already processed (atomic upsert):', orderDoc._id)
+      return { status: 'already_processed', orderId: orderDoc._id }
+    }
+
+    // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
     const tickets = []
     for (const li of items) {
       const qty = Math.max(0, Number(li.quantity) || 0)
@@ -214,16 +229,6 @@ async function processPaidSession(expanded) {
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
   } catch (err) {
-    // Vang duplicate key error (E11000) af als 'success'
-    if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
-      console.warn('Order creation race condition caught (E11000). Assuming already processed.')
-      try {
-        const { default: Order } = await import('../models/orderModel.js')
-        const existing = await Order.findOne({ stripeSessionId: expanded.id }).lean()
-        if (existing) return { status: 'already_processed', orderId: existing._id }
-      } catch (_) { }
-      return { status: 'already_processed' }
-    }
     console.error('processPaidSession error:', err)
     return { status: 'error', error: err?.message || String(err) }
   }
