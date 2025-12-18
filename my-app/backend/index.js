@@ -74,17 +74,19 @@ async function connectMongo() {
     try {
       const { default: Order } = await import('./models/orderModel.js');
       const { default: Ticket } = await import('./models/ticketModel.js');
-      console.log('[DB] Ensuring indexes...');
-      await Order.syncIndexes();
-      await Ticket.syncIndexes();
-      logBoot('Indexes synced successfully.')
-      const orderIndexes = await Order.listIndexes();
-      const ticketIndexes = await Ticket.listIndexes();
-      console.log('[DB] Order indexes:', JSON.stringify(orderIndexes.map(i => i.name)));
-      console.log('[DB] Ticket indexes:', JSON.stringify(ticketIndexes.map(i => i.name)));
+      const { ensureDatabaseIntegrity } = await import('./utils/dbMaintenance.js');
+
+      console.log('[DB] Ensuring database integrity (removing duplicates & forcing indexes)...');
+      logBoot('Starting DB integrity check...')
+
+      const result = await ensureDatabaseIntegrity(Order, Ticket);
+
+      logBoot(`Integrity check done. Removed ${result.removed} duplicates. Index active: ${result.indexVerified}`)
+      console.log(`[DB] Maintenance complete. Duplicates removed: ${result.removed}. Unique index active: ${result.indexVerified}`);
+
     } catch (idxErr) {
-      console.error('[DB] Error ensuring indexes:', idxErr);
-      logBoot(`Error ensuring indexes: ${idxErr.message}`)
+      console.error('[DB] Error during maintenance:', idxErr);
+      logBoot(`Error during maintenance: ${idxErr.message}`)
     }
 
   } catch (err) {
