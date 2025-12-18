@@ -220,11 +220,23 @@ async function processPaidSession(expanded, source = 'unknown') {
 
     // Dubbele check: als er op magische wijze toch 2 orders zijn (race condition zonder unieke index)
     // dan willen we niet OOK nog tickets maken voor de tweede.
-    const duplicates = await Order.countDocuments({ stripeSessionId: expanded.id })
-    if (duplicates > 1) {
-      const msgCrit = `[Payment] CRITICAL: Multiple orders detected for session ${expanded.id} AFTER insert. Aborting ticket generation for this thread.`
+    const allOrders = await Order.find({ stripeSessionId: expanded.id }).sort({ _id: 1 })
+    if (allOrders.length > 1) {
+      const master = allOrders[0]
+      const isMaster = String(master._id) === String(orderDoc._id)
+
+      const msgCrit = `[Payment] CRITICAL: Multiple orders detected for session ${expanded.id}. Count: ${allOrders.length}. Am I master? ${isMaster}`
       console.error(msgCrit)
       logToDebugFile(msgCrit)
+
+      if (!isMaster) {
+        logToDebugFile(`[Payment] I am a duplicate (Master: ${master._id}). Deleting myself (${orderDoc._id}) and aborting.`)
+        // Verwijder deze duplicaat order direct om DB schoon te houden
+        await Order.findByIdAndDelete(orderDoc._id).catch(e => console.error('Delete duplicate failed', e))
+        return { status: 'already_processed', orderId: master._id }
+      }
+
+      logToDebugFile(`[Payment] I am the master (${orderDoc._id}). Proceeding with ticket generation.`)
     }
 
     // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
