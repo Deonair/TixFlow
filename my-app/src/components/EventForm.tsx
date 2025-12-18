@@ -202,6 +202,11 @@ function EventForm() {
     <section className="mx-auto max-w-xl">
       <div className="rounded-lg bg-white shadow-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {generalError && (
+            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
+              {generalError}
+            </div>
+          )}
           <div className="w-full">
             <label className="block text-sm font-medium mb-2" htmlFor="title">Titel *</label>
             <input

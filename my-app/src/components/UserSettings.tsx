@@ -134,7 +134,7 @@ const UserSettings = () => {
                     if (!res.ok) {
                       let msg = 'Opslaan mislukt'
                       try {
-                        const data = await res.json() as { message?: string; errors?: any }
+                        const data = await res.json() as { message?: string; errors?: Partial<Record<'name' | 'email' | 'password', string>> }
                         msg = data?.message || msg
                         if (data?.errors) {
                           setSaveFieldErrors(data.errors)
@@ -161,6 +161,7 @@ const UserSettings = () => {
                     onChange={(e) => setNameInput(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {saveFieldErrors.name && <p className="mt-1 text-xs text-red-600">{saveFieldErrors.name}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">E-mail</label>
@@ -170,6 +171,7 @@ const UserSettings = () => {
                     onChange={(e) => setEmailInput(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {saveFieldErrors.email && <p className="mt-1 text-xs text-red-600">{saveFieldErrors.email}</p>}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -181,6 +183,7 @@ const UserSettings = () => {
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <p className="mt-1 text-xs text-gray-500">Het huidige wachtwoord wordt om veiligheidsredenen niet getoond.</p>
+                    {saveFieldErrors.password && <p className="mt-1 text-xs text-red-600">{saveFieldErrors.password}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Bevestig wachtwoord</label>

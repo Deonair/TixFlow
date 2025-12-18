@@ -78,7 +78,7 @@ const EventCheckout = () => {
     } catch (err) {
       console.error(err)
       const msg = err instanceof Error ? err.message : ''
-      alert(msg ? `Fout: ${msg}` : 'Er ging iets mis bij het starten van je betaling. Probeer opnieuw.')
+      setGeneralError(msg || 'Er ging iets mis bij het starten van je betaling. Probeer opnieuw.')
     }
   }
 

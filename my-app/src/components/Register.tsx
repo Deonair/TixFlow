@@ -72,7 +72,7 @@ const Register = () => {
         })
       })
       if (!res.ok) {
-        let data: any = null
+        let data: unknown = null
         try { data = await res.json() } catch { console.warn('Kon serverfouten niet parsen') }
         type ServerResp = { errors?: Partial<RegisterForm>; message?: string }
         const serverErrors = (data as ServerResp)?.errors || {}
