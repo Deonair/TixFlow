@@ -484,7 +484,15 @@ function AdminDashboard() {
               <div>
                 <input
                   value={checkToken}
-                  onChange={e => setCheckToken(e.target.value)}
+                  onChange={e => {
+                    setCheckToken(e.target.value)
+                    setCheckInfo(null)
+                    setRedeemMessage(null)
+                    setJustRedeemed(false)
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') verifyTicket()
+                  }}
                   placeholder="Ticketcode"
                   className="w-full py-2.5 px-3 border border-gray-200 rounded-lg text-sm text-gray-900"
                 />

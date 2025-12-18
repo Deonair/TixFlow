@@ -19,7 +19,6 @@ import UserSettings from './components/UserSettings'
 import CheckoutSuccess from './components/CheckoutSuccess'
 import CheckoutCancel from './components/CheckoutCancel'
 import OrdersList from './components/OrdersList'
-import TicketVerify from './components/TicketVerify'
 import SuperAdmin from './components/SuperAdmin'
 import SuperAdminOrganizers from './components/SuperAdminOrganizers'
 import SuperAdminEvents from './components/SuperAdminEvents'
@@ -52,7 +51,6 @@ function App() {
           <Route path="/event/:slug/checkout" element={<EventCheckout />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
-          <Route path="/tickets/verify" element={<TicketVerify />} />
           <Route path="/superadmin" element={<SuperAdmin />} />
           <Route path="/superadmin/organizers" element={<SuperAdminOrganizers />} />
           <Route path="/superadmin/events" element={<SuperAdminEvents />} />
