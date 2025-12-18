@@ -13,122 +13,6 @@ type EventItem = {
   ticketTypes?: TicketType[]
 }
 
-function TicketDebugList() {
-  const [tickets, setTickets] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState('')
-
-  const load = async () => {
-    setLoading(true)
-    setErr('')
-    try {
-      const res = await fetch('/api/admin/debug/tickets')
-      if (!res.ok) throw new Error('Kon tickets niet laden')
-      const data = await res.json()
-      setTickets(data)
-    } catch (e: any) {
-      setErr(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Auto load on mount
-  useEffect(() => { load() }, [])
-
-  if (loading) return <div>Laden...</div>
-  if (err) return <div className="text-red-600">Error: {err}</div>
-  if (tickets.length === 0) return <div>Geen tickets gevonden in database.</div>
-
-  return (
-    <div className="overflow-x-auto">
-      <button onClick={load} className="mb-2 text-xs bg-yellow-200 px-2 py-1 rounded hover:bg-yellow-300">Verversen</button>
-      <table className="w-full text-xs text-left">
-        <thead>
-          <tr className="border-b border-yellow-200">
-            <th className="py-1">Aangemaakt</th>
-            <th className="py-1">Event</th>
-            <th className="py-1">Email</th>
-            <th className="py-1 font-mono">Token (Code)</th>
-            <th className="py-1">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tickets.map(t => (
-            <tr key={t._id} className="border-b border-yellow-100 hover:bg-yellow-100">
-              <td className="py-1">{new Date(t.createdAt).toLocaleString('nl-NL')}</td>
-              <td className="py-1">{t.event}</td>
-              <td className="py-1">{t.email}</td>
-              <td className="py-1 font-mono font-bold select-all bg-white px-1 rounded border border-gray-200">{t.token}</td>
-              <td className="py-1">
-                {t.redeemed
-                  ? <span className="text-green-600 font-bold">INGECHECKT</span>
-                  : <span className="text-gray-500">Open</span>
-                }
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function LogViewer() {
-  const [logs, setLogs] = useState<string[]>([])
-  const [fixing, setFixing] = useState(false)
-  const [fixResult, setFixResult] = useState('')
-
-  const load = async () => {
-    try {
-      const res = await fetch('/api/admin/debug/logs')
-      const data = await res.json()
-      if (Array.isArray(data)) setLogs(data)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const fixDb = async () => {
-    if (!confirm('LET OP: Dit verwijdert dubbele orders en forceert indexen. Weet je het zeker?')) return
-    setFixing(true)
-    setFixResult('')
-    try {
-      const res = await fetch('/api/admin/debug/fix-db', { method: 'POST' })
-      const data = await res.json()
-      setFixResult(data.message || 'Geen bericht')
-      load() // logs verversen
-    } catch (e: any) {
-      setFixResult('Fout: ' + e.message)
-    } finally {
-      setFixing(false)
-    }
-  }
-
-  useEffect(() => { load() }, [])
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <button onClick={load} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">Verversen</button>
-        <button
-          onClick={fixDb}
-          disabled={fixing}
-          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs font-bold"
-        >
-          {fixing ? 'Bezig...' : '🛠️ Repareer Database & Indexen'}
-        </button>
-      </div>
-      {fixResult && <div className="mb-2 p-2 bg-blue-900 text-blue-100 text-xs rounded">{fixResult}</div>}
-      <div className="h-48 overflow-y-auto bg-black p-2 rounded border border-gray-700">
-        {logs.map((l, i) => (
-          <div key={i} className="whitespace-pre-wrap mb-1 border-b border-gray-800 pb-1">{l}</div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function AdminDashboard() {
   const navigate = useNavigate()
   const [events, setEvents] = useState<EventItem[]>([])
@@ -164,6 +48,7 @@ function AdminDashboard() {
     load()
     return () => { cancelled = true }
   }, [])
+
 
   const stats = useMemo(() => {
     const now = new Date()
@@ -428,20 +313,6 @@ function AdminDashboard() {
             </div>
           </div>
         )}
-
-        {/* DEBUG SECTIE VOOR TICKETS */}
-        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-          <h3 className="text-lg font-bold text-yellow-800 mb-2">🕵️‍♂️ Ticket Debugger (Laatste 50 tickets)</h3>
-          <p className="text-sm text-yellow-700 mb-4">Gebruik dit om te controleren of tickets écht in de database staan en wat hun codes zijn.</p>
-          <TicketDebugList />
-        </div>
-
-        {/* DEBUG SECTIE VOOR LOGS */}
-        <div className="mb-8 p-4 bg-gray-900 text-green-400 rounded-xl font-mono text-xs overflow-hidden">
-          <h3 className="text-lg font-bold text-white mb-2">📟 Server Logs (Bewijs van Betalingen)</h3>
-          <p className="mb-2 text-gray-400">Hier zie je precies wat de server doet als er betaald wordt.</p>
-          <LogViewer />
-        </div>
 
 
         {/* Live event */}
