@@ -132,22 +132,24 @@ export default { createCheckoutSession, handleStripeWebhook }
 async function processPaidSession(expanded, source = 'unknown') {
   try {
     console.log(`[Payment] Start processing session ${expanded.id} via ${source}`)
-    const lineItems = expanded?.line_items?.data || []
-    const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
-    const { default: Event } = await import('../models/eventModel.js')
+
+    // Check vooraf of order al bestaat (snelle check)
     const { default: Order } = await import('../models/orderModel.js')
+    const { default: Event } = await import('../models/eventModel.js')
     const { default: Ticket } = await import('../models/ticketModel.js')
 
-    // Zorg dat indexen bestaan (belangrijk voor unieke stripeSessionId)
-    await Order.init().catch(err => console.error('Order index init failed:', err))
-
-    // Log indexen ter controle
-    try {
-      const indexes = await Order.listIndexes()
-      console.log('[Payment] Current Order indexes:', JSON.stringify(indexes))
-    } catch (idxErr) {
-      console.warn('[Payment] Could not list indexes:', idxErr.message)
+    const existingOrder = await Order.findOne({ stripeSessionId: expanded.id }).lean()
+    if (existingOrder) {
+      console.log(`[Payment] Order ${expanded.id} already exists (pre-check). OrderID: ${existingOrder._id}`)
+      return { status: 'already_processed', orderId: existingOrder._id }
     }
+
+    const lineItems = expanded?.line_items?.data || []
+    const clientRef = expanded.client_reference_id || expanded.metadata?.eventSlug
+
+    // Zorg dat indexen bestaan (belangrijk voor unieke stripeSessionId)
+    // await Order.init().catch(err => console.error('Order index init failed:', err)) 
+    // ^ Verplaatst naar index.js startup
 
     const eventDoc = clientRef ? await Event.findOne({ slug: String(clientRef) }) : null
     if (!eventDoc) {
@@ -167,7 +169,6 @@ async function processPaidSession(expanded, source = 'unknown') {
     })
 
     // Atomic upsert om race conditions (dubbele e-mails) te voorkomen.
-    // We vertrouwen op de unieke index op stripeSessionId, maar findOneAndUpdate is atomair.
     const orderData = {
       event: eventDoc._id,
       items,
@@ -179,9 +180,6 @@ async function processPaidSession(expanded, source = 'unknown') {
       status: 'paid',
     }
 
-    // includeResultMetadata: true (Mongoose 7+) geeft { value, lastErrorObject, ok } terug
-    // upsert: true maakt het aan als het niet bestaat
-    // new: true geeft het document terug (of het nieuwe, of het bestaande)
     const result = await Order.findOneAndUpdate(
       { stripeSessionId: expanded.id },
       { $setOnInsert: orderData },
@@ -197,15 +195,14 @@ async function processPaidSession(expanded, source = 'unknown') {
 
     console.log(`[Payment] New order created via ${source}. OrderID: ${orderDoc._id}. Starting ticket generation...`)
 
-    // Paranoid check: zijn er meerdere orders met dit session ID?
-    try {
-      const duplicates = await Order.find({ stripeSessionId: expanded.id }).select('_id createdAt').lean()
-      if (duplicates.length > 1) {
-        console.error(`[Payment] CRITICAL: Multiple orders found for session ${expanded.id}!`, duplicates)
-        // We stoppen hier NIET hard, want we hebben net de order aangemaakt en tickets moeten nog.
-        // Maar dit bevestigt wel dat de unieke index ontbreekt of faalt.
-      }
-    } catch (dupErr) { console.error('[Payment] Duplicate check error:', dupErr) }
+    // Dubbele check: als er op magische wijze toch 2 orders zijn (race condition zonder unieke index)
+    // dan willen we niet OOK nog tickets maken voor de tweede.
+    const duplicates = await Order.countDocuments({ stripeSessionId: expanded.id })
+    if (duplicates > 1) {
+      console.error(`[Payment] CRITICAL: Multiple orders detected for session ${expanded.id} AFTER insert. Aborting ticket generation for this thread.`)
+      // We kunnen niet zeker weten of de andere thread tickets maakt, maar 2x tickets is erger.
+      // Echter, als we hier zijn, heeft *deze* thread net een insert gedaan.
+    }
 
     // Als we hier zijn, is de order NET aangemaakt. Maak tickets en stuur mail.
     const tickets = []
@@ -222,6 +219,7 @@ async function processPaidSession(expanded, source = 'unknown') {
             tries++
           }
         } catch (_) { }
+
         const ticket = await Ticket.create({
           event: eventDoc._id,
           order: orderDoc._id,
@@ -229,11 +227,13 @@ async function processPaidSession(expanded, source = 'unknown') {
           ticketTypeName: li.typeName,
           token,
         })
+        console.log(`[Payment] Ticket created: ${ticket.token} for Order ${orderDoc._id}`)
         tickets.push({ token: ticket.token, ticketTypeName: ticket.ticketTypeName })
       }
     }
 
     try {
+      console.log(`[Payment] Sending email to ${orderDoc.customerEmail} with ${tickets.length} tickets.`)
       await sendTicketsEmail({
         to: orderDoc.customerEmail,
         event: { title: eventDoc.title, location: eventDoc.location, date: eventDoc.date },
@@ -244,6 +244,7 @@ async function processPaidSession(expanded, source = 'unknown') {
           items,
         },
       })
+      console.log('[Payment] Email sent successfully.')
     } catch (mailErr) {
       console.error('E-mail verzenden mislukt:', mailErr)
     }
@@ -251,6 +252,11 @@ async function processPaidSession(expanded, source = 'unknown') {
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
   } catch (err) {
     console.error('processPaidSession error:', err)
+    // Check op duplicate key error (code 11000)
+    if (err.code === 11000 || err.message?.includes('duplicate key')) {
+      console.log('[Payment] Caught duplicate key error (race condition). Order already exists.')
+      return { status: 'already_processed' }
+    }
     return { status: 'error', error: err?.message || String(err) }
   }
 }
