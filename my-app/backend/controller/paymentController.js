@@ -276,11 +276,17 @@ async function processPaidSession(expanded, source = 'unknown') {
     }
 
     // EMAIL SENDING
-    // Check lock again just to be safe regarding email sending
-    const freshOrder = await Order.findById(orderDoc._id)
-    if (freshOrder.emailSent) {
-      logToDebugFile(`[Payment] Email already sent flag is true. Skipping email.`)
-      return { status: 'processed', orderId: orderDoc._id }
+    // Atomic LOCK: Probeer 'emailSent' op true te zetten, ALLEEN als het nu false is.
+    // Dit zorgt ervoor dat als 2 processen hier tegelijk zijn, er maar 1 de update doet.
+    const lockedOrder = await Order.findOneAndUpdate(
+      { _id: orderDoc._id, emailSent: false },
+      { $set: { emailSent: true } },
+      { new: true }
+    );
+
+    if (!lockedOrder) {
+      logToDebugFile(`[Payment] Could not acquire email lock for Order ${orderDoc._id}. Email likely already sent or being sent.`)
+      return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length, message: 'Email already sent (lock skipped)' }
     }
 
     try {
@@ -298,15 +304,13 @@ async function processPaidSession(expanded, source = 'unknown') {
         },
       })
 
-      // Update flag
-      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: true })
-
       console.log('[Payment] Email sent successfully.')
       logToDebugFile('[Payment] Email sent successfully.')
     } catch (mailErr) {
       console.error('E-mail verzenden mislukt:', mailErr)
       logToDebugFile(`[Payment] Email error: ${mailErr.message}`)
-      // We zetten emailSent NIET op true, zodat retry mogelijk is
+      // We zetten emailSent weer op false, zodat retry mogelijk is
+      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: false });
     }
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
