@@ -254,18 +254,14 @@ async function processPaidSession(expanded, source = 'unknown') {
       for (const li of items) {
         const qty = Math.max(0, Number(li.quantity) || 0)
         for (let i = 0; i < qty; i++) {
-          let token = crypto.randomBytes(4).toString('hex')
-          try {
-            let tries = 0
-            while (tries < 5) {
-              const exists = await Ticket.findOne({ token }).lean()
-              if (!exists) break
-              token = crypto.randomBytes(4).toString('hex')
-              tries++
-            }
-          } catch (_) { }
+          // DETERMINISTIC TOKEN GENERATION
+          // Gebruik stripeSessionId + ticketType + index als seed.
+          // Dit garandeert dat als deze code 2x draait (race condition), EXACT dezelfde tokens worden gegenereerd.
+          // Omdat 'token' unique is in DB, faalt de 2e poging hard (wat goed is).
+          // Resultaat: Nooit meer 'spook-tickets' die niet in de DB staan.
+          const seed = `${orderDoc.stripeSessionId}-${li.typeName}-${i}`
+          const token = crypto.createHash('sha256').update(seed).digest('hex').substring(0, 8)
 
-          // Double check inside loop? Nee, Mongo create is atomic.
           const ticket = await Ticket.create({
             event: eventDoc._id,
             order: orderDoc._id,
