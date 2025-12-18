@@ -309,8 +309,9 @@ async function processPaidSession(expanded, source = 'unknown') {
     } catch (mailErr) {
       console.error('E-mail verzenden mislukt:', mailErr)
       logToDebugFile(`[Payment] Email error: ${mailErr.message}`)
-      // We zetten emailSent weer op false, zodat retry mogelijk is
-      await Order.findByIdAndUpdate(orderDoc._id, { emailSent: false });
+      // BELANGRIJK: We resetten de lock NIET.
+      // Als de mail faalt (bijv. timeout), kan hij stiekem toch verstuurd zijn.
+      // We willen absoluut geen dubbele mails. De admin moet het maar handmatig checken/oplossen.
     }
 
     return { status: 'processed', orderId: orderDoc._id, ticketsCount: tickets.length }
