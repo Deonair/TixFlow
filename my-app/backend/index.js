@@ -137,9 +137,26 @@ app.use('/api', ticketRouter);
 app.use('/api/admin', adminRouter);
 
 // Health endpoint voor snelle check
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
   const state = mongoose.connection.readyState; // 0:disconnected 1:connected
-  res.json({ ok: true, db: state === 1 ? 'connected' : 'not_connected' });
+  let stats = {};
+  try {
+     const { default: Ticket } = await import('./models/ticketModel.js');
+     const { default: Order } = await import('./models/orderModel.js');
+     stats = {
+        tickets: await Ticket.countDocuments(),
+        orders: await Order.countDocuments(),
+        dbName: mongoose.connection.name,
+        host: mongoose.connection.host,
+     };
+  } catch (e) { stats.error = e.message; }
+  
+  res.json({ 
+    ok: true, 
+    db: state === 1 ? 'connected' : 'not_connected',
+    readyState: state,
+    stats
+  });
 });
 
 // Preview endpoint om e-mail HTML snel te bekijken in de browser
